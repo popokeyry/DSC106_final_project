@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Two Decades of Climate Signals — Real Data Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #1e252f; --border: #2d333b;
+    --text: #e6edf3; --muted: #8b949e;
+    --accent: #58a6ff; --accent2: #f78166; --accent3: #3fb950; --accent4: #d2a8ff; --warn: #e3b341;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.7; overflow-x: hidden; }
+
+  #progress { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent3)); z-index: 200; transition: width .1s linear; }
+
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(13,17,23,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; gap: 1.5rem; height: 54px; overflow-x: auto; }
+  nav .logo { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.82rem; font-weight: 500; transition: color .2s; white-space: nowrap; }
+  nav a:hover { color: var(--text); }
+
+  .hero { position: relative; min-height: 92vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 4rem 2rem; overflow: hidden; }
+  .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: .55; }
+  .hero .inner { position: relative; z-index: 2; max-width: 860px; }
+  .hero .tag { display: inline-block; background: rgba(88,166,255,0.12); border: 1px solid rgba(88,166,255,0.3); color: var(--accent); font-size: 0.72rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; padding: .35rem 1rem; border-radius: 99px; margin-bottom: 1.8rem; }
+  .hero h1 { font-family: 'Playfair Display', serif; font-size: clamp(2.4rem, 7vw, 5rem); font-weight: 900; line-height: 1.08; margin-bottom: 1.6rem; letter-spacing: -.01em; }
+  .hero h1 em { font-style: italic; color: var(--accent2); }
+  .hero h1 .green { color: var(--accent3); font-style: italic; }
+  .hero p.sub { font-size: 1.18rem; color: var(--muted); max-width: 620px; margin: 0 auto 2.5rem; }
+  .hero .stats { display: flex; justify-content: center; gap: 2.6rem; flex-wrap: wrap; margin-top: 1rem; }
+  .hero .stat .num { font-family: 'Playfair Display', serif; font-size: 2.1rem; font-weight: 700; color: var(--accent); display: block; }
+  .hero .stat .label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+  .scroll-hint { position: absolute; bottom: 1.4rem; left: 0; right: 0; text-align: center; color: var(--muted); font-size: .8rem; z-index: 2; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:.35} 50%{opacity:1} }
+
+  .beat { max-width: 760px; margin: 0 auto; padding: 6rem 2rem 2rem; text-align: center; }
+  .beat.tight { padding-top: 3rem; }
+  .beat .kicker { font-size: 0.74rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
+  .beat h2 { font-family: 'Playfair Display', serif; font-size: clamp(1.8rem, 4.5vw, 3rem); font-weight: 700; line-height: 1.18; margin-bottom: 1.3rem; }
+  .beat h2 em { font-style: italic; color: var(--accent2); }
+  .beat p { color: var(--muted); font-size: 1.08rem; max-width: 640px; margin: 0 auto 1.1rem; }
+  .beat p strong { color: var(--text); font-weight: 600; }
+  .beat .lead { color: var(--text); font-size: 1.22rem; }
+
+  section { padding: 2rem; max-width: 1080px; margin: 0 auto; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.8rem; }
+  .chart-card h3 { font-family: 'Playfair Display', serif; font-size: 1.18rem; margin-bottom: .25rem; }
+  .chart-card .subtitle { color: var(--muted); font-size: .85rem; margin-bottom: 1.25rem; }
+
+  .controls { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1.4rem; align-items: center; }
+  .controls label { font-size: .82rem; color: var(--muted); font-weight: 500; }
+  select, input[type="range"] { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .35rem .7rem; font-size: .85rem; cursor: pointer; outline: none; font-family: 'DM Sans', sans-serif; }
+  select:focus { border-color: var(--accent); }
+  input[type="range"] { padding: 0; width: 150px; accent-color: var(--accent); }
+  .btn-group { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: .4rem .9rem; font-size: .82rem; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { background: rgba(88,166,255,0.15); border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: rgba(63,185,80,.15); border-color: var(--accent3); color: var(--accent3); font-weight: 600; }
+  .btn.primary:hover { background: rgba(63,185,80,.28); }
+
+  .tooltip { position: absolute; background: #1c2333; border: 1px solid var(--border); border-radius: 8px; padding: .65rem 1rem; pointer-events: none; font-size: .82rem; line-height: 1.5; z-index: 999; box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: 240px; }
+  .tooltip strong { color: var(--accent); }
+
+  svg { max-width: 100%; }
+  svg text { font-family: 'DM Sans', sans-serif; }
+  .axis path, .axis line { stroke: var(--border); }
+  .axis text { fill: var(--muted); font-size: 11px; }
+  .grid line { stroke: var(--border); stroke-dasharray: 3,3; }
+  .grid path { stroke: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; margin-top: 1rem; }
+  .legend-item { display: flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--muted); cursor: pointer; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .callout { display: flex; align-items: center; gap: 2.2rem; flex-wrap: wrap; justify-content: center; max-width: 780px; margin: 3rem auto 0; padding: 2.2rem; background: linear-gradient(135deg, rgba(63,185,80,.07), rgba(88,166,255,.05)); border: 1px solid var(--border); border-radius: 16px; text-align: left; }
+  .callout .big { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(3rem, 9vw, 5rem); line-height: 1; color: var(--accent3); white-space: nowrap; }
+  .callout .big .den { color: var(--muted); font-size: .5em; }
+  .callout .txt { color: var(--muted); font-size: 1rem; max-width: 380px; }
+  .callout .txt strong { color: var(--text); }
+
+  .quad-label { font-size: 11px; font-weight: 600; opacity: .85; }
+  .quad-bg { opacity: .05; }
+
+  .note { max-width: 700px; margin: 2rem auto 0; padding: 1.2rem 1.4rem; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--warn); border-radius: 10px; font-size: .88rem; color: var(--muted); }
+  .note strong { color: var(--warn); }
+
+  .draw-wrap { max-width: 820px; margin: 0 auto; }
+  #draw-chart { touch-action: none; cursor: crosshair; display: block; width: 100%; }
+  .draw-status { font-size: .9rem; color: var(--muted); margin-top: 1rem; min-height: 3.4rem; }
+  .draw-status strong { color: var(--text); }
+  .draw-score { font-family: 'Playfair Display', serif; font-size: 1.6rem; }
+
+  .scrolly { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; max-width: 1180px; margin: 0 auto; padding: 0 1.5rem; }
+  .scrolly-graphic { grid-column: 2; grid-row: 1; position: sticky; top: 64px; height: calc(100vh - 90px); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .scrolly-graphic .chart-card { width: 100%; }
+  .scrolly-steps { grid-column: 1; grid-row: 1; }
+  .step { min-height: 76vh; display: flex; align-items: center; }
+  .step .card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px; padding: 1.6rem 1.7rem; opacity: .32; transform: translateY(10px); transition: opacity .4s, transform .4s, border-color .4s; }
+  .step.active .card { opacity: 1; transform: none; border-left-color: var(--accent); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+  .step .card .stepnum { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: .5rem; }
+  .step .card h4 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: .6rem; line-height: 1.25; }
+  .step .card p { color: var(--muted); font-size: .96rem; }
+  .step .card p strong { color: var(--text); }
+  @media (max-width: 880px) {
+    .scrolly { grid-template-columns: 1fr; gap: 0; }
+    .scrolly-graphic { grid-column: 1; grid-row: 1; position: sticky; top: 56px; height: auto; background: rgba(13,17,23,.97); backdrop-filter: blur(4px); padding: .4rem 0 .6rem; z-index: 5; box-shadow: 0 12px 16px -8px rgba(13,17,23,.97); }
+    .scrolly-steps { grid-column: 1; grid-row: 2; }
+    .step { min-height: 64vh; }
+  }
+
+  .quiz { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.3rem; }
+  .qcard { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.7rem; }
+  .qcard .qnum { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: .5rem; }
+  .qcard .qtext { font-family: 'Playfair Display', serif; font-size: 1.25rem; margin-bottom: 1.1rem; line-height: 1.3; }
+  .qopts { display: grid; gap: .6rem; }
+  .qopt { text-align: left; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 9px; padding: .8rem 1rem; font-size: .95rem; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; }
+  .qopt:hover:not(:disabled) { border-color: var(--accent); }
+  .qopt:disabled { cursor: default; }
+  .qopt.correct { border-color: var(--accent3); background: rgba(63,185,80,.16); color: #7ee094; font-weight: 600; }
+  .qopt.wrong { border-color: var(--accent2); background: rgba(247,129,102,.14); color: #ffab94; }
+  .qfeedback { margin-top: 1rem; font-size: .9rem; color: var(--muted); padding-left: .9rem; border-left: 2px solid var(--accent); display: none; }
+  .qfeedback.show { display: block; }
+  .qfeedback strong { color: var(--text); }
+  .scorecard { text-align: center; background: linear-gradient(135deg, rgba(88,166,255,.08), rgba(247,129,102,.05)); border: 1px solid var(--border); border-radius: 16px; padding: 2.4rem; opacity: 0; transform: translateY(14px); transition: all .6s; }
+  .scorecard.show { opacity: 1; transform: none; }
+  .scorecard .bignum { font-family: 'Playfair Display', serif; font-size: 3.4rem; font-weight: 900; color: var(--accent); }
+  .scorecard .insight { color: var(--text); font-size: 1.1rem; max-width: 460px; margin: .6rem auto 0; }
+
+  .sandbox-grid { display: grid; grid-template-columns: 1fr; gap: 1.4rem; }
+  @media (min-width: 920px) { .sandbox-grid { grid-template-columns: 1fr 1fr; } }
+
+  .writeup { max-width: 820px; margin: 4rem auto 0; background: linear-gradient(135deg, rgba(88,166,255,0.06), rgba(247,129,102,0.04)); border: 1px solid var(--border); border-radius: 16px; padding: 2.6rem; }
+  .writeup h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1.4rem; color: var(--accent); }
+  .writeup .q { font-weight: 600; color: var(--text); margin-bottom: .4rem; }
+  .writeup p { color: var(--muted); margin-bottom: 1.5rem; font-size: .94rem; line-height: 1.8; }
+  footer { border-top: 1px solid var(--border); text-align: center; padding: 2.5rem; color: var(--muted); font-size: .82rem; margin-top: 4rem; }
+  footer span { color: var(--accent); }
+  .divider { width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
+  .annotation-text { fill: var(--warn); font-size: 11px; font-style: italic; }
+
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s ease, transform .8s ease; }
+  .reveal.in-view { opacity: 1; transform: none; }
+
+  @media (max-width: 700px) {
+    .hero .stats { gap: 1.4rem; } .writeup { padding: 1.6rem; } section { padding: 1.5rem 1rem; }
+    .beat { padding: 4rem 1.2rem 1.5rem; } .callout { gap: 1.2rem; padding: 1.6rem; }
+  }
+
+  .section-locked {
+  display: none;
+  }
+.section-locked.unlocked {
+  display: block;
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<nav>
+  <div class="logo">🌍 Climate Signals</div>
+  <a href="#guess">Guess First</a>
+  <a href="#story">The Story</a>
+  <a href="#quadrant">The Answer</a>
+  <a href="#quiz">Test Yourself</a>
+  <a href="#explore">Explore</a>
+</nav>
+
+<div class="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="inner">
+    <div class="tag">Real Data · 15 Countries · 2000–2023 · Berkeley Earth · Our World in Data · NASA · EM-DAT</div>
+    <h1>Climate change is <em>global</em>.<br/>The response and impact is <span class="green">not</span>.</h1>
+    <p class="sub">Countries contribute to climate change differently and experience it differently. We tracked five signals across fifteen countries for twenty-four years to ask: are the countries building clean energy actually cutting emissions,and what have two decades of climate impacts looked like in the meantime?</p>
+    <div class="stats">
+      <div class="stat"><span class="num" data-count="15">15</span><span class="label">Countries</span></div>
+      <div class="stat"><span class="num" data-count="24">24</span><span class="label">Years</span></div>
+      <div class="stat"><span class="num" data-count="5">5</span><span class="label">Signals</span></div>
+      <div class="stat"><span class="num" data-count="360">360</span><span class="label">Observations</span></div>
+    </div>
+  </div>
+  <div class="scroll-hint">↓ Scroll to begin the story</div>
+</div>
+
+<div class="beat" id="guess">
+  <div class="kicker reveal">Before the data · Commit to a guess</div>
+  <h2 class="reveal">First: <em>how much warmer</em> has it actually gotten?</h2>
+  <p class="reveal lead">Before we look at emissions or renewables, let's establish the baseline: temperatures are rising. But by how much, averaged across these fifteen countries?</p>
+  <p class="reveal">Each country's raw temperature is stripped of its baseline — what remains is the <em>change</em> relative to 2000. Zero means no warmer than 2000. Drag to sketch your prediction, then reveal the actual signal.</p>
+</div>
+
+<section class="reveal">
+  <div class="chart-card draw-wrap">
+    <h3>Draw the average warming trend, 2000–2023</h3>
+    <div class="subtitle">Values show temperature change relative to each country's 2000 baseline · drag left-to-right to sketch your prediction · then hit Reveal.</div>
+    <svg id="draw-chart"></svg>
+    <div class="controls" style="margin-top:1rem;">
+      <button class="btn primary" id="draw-reveal">✨ Reveal the actual data</button>
+      <button class="btn" id="draw-reset">↺ Redraw</button>
+    </div>
+    <div class="draw-status" id="draw-status">Sketch your prediction above. The line should span the full width, 2000 → 2023.</div>
+  </div>
+</section>
+
+<div class="beat" id="story">
+  <div class="kicker reveal">Chapter 1 · Five Signals</div>
+  <h2 class="reveal">Same planet. <em>Very different</em> starting points.</h2>
+  <p class="reveal">To understand whether the energy transition is working, we first need to understand how different these countries are: in climate, in emissions, and in how much the ocean has already risen around them.</p>
+</div>
+
+<div class="scrolly" id="scrolly-temp">
+  <div class="scrolly-graphic">
+    <div class="chart-card">
+      <h3>Average Temperature, 2000–2023</h3>
+      <div class="subtitle" id="temp-caption">Fifteen countries, fifteen trajectories · Source: Berkeley Earth</div>
+      <svg id="temp-chart"></svg>
+    </div>
+  </div>
+  <div class="scrolly-steps">
+    <div class="step" data-step="0">
+      <div class="card">
+      <div class="stepnum">Step 1</div>
+      <h4>No single global temperature.</h4>
+      <p>These are the annual mean temperatures for all fifteen countries from Berkeley Earth. Russia and Canada sit well below freezing; Brazil and India above 25°C. <strong>The spread is nearly 30°C, which is why warming is always measured as change from a baseline, not as an absolute.</strong> That baseline comparison is what you just drew.</p>
+    </div>
+  </div>
+  <div class="step" data-step="1">
+    <div class="card">
+      <div class="stepnum">Step 2</div>
+      <h4>The biggest emitters occupy different worlds.</h4>
+      <p>Spotlight the three largest emitters: <strong>USA, China, India</strong>. They occupy completely different temperature bands. These are also the three countries whose emissions are vital to understand. Same problem, completely different physical context.</p>
+    </div>
+  </div>
+  <div class="step" data-step="2">
+    <div class="card">
+      <div class="stepnum">Step 3</div>
+      <h4>Even similar countries diverge.</h4>
+      <p>Now just <strong>France and the UK</strong>. They are neighbors, similar economies, similar climate policies. Their temperatures track closely but diverge in some years. If even the most comparable countries aren't identical, country-level analysis isn't optional,  <strong>it's an important contextualization.</strong></p>
+    </div>
+  </div>
+  </div>
+  </div>
+
+<div class="scrolly" id="scrolly-scatter">
+  <div class="scrolly-graphic">
+    <div class="chart-card">
+      <h3>Renewables vs. CO₂ — <span id="scatter-yr">2000</span></h3>
+      <div class="subtitle">Each circle = one country · size = population · dashed line = best fit that year · Source: OWID</div>
+      <svg id="scatter-chart"></svg>
+    </div>
+  </div>
+  <div class="scrolly-steps">
+    <div class="step" data-step="0">
+      <div class="card">
+      <div class="stepnum">2000 · The starting line</div>
+      <h4>Low renewables, high emissions — almost everywhere.</h4>
+      <p>In 2000, nearly every country had a renewable share under 10%. The USA led emissions at over 21 tons per person. <strong>Brazil is the striking outlier</strong>, already above 40% renewables thanks to hydro, with emissions under 2 tons. It raises the question: does building renewables actually move the emissions needle?</p>
+    </div>
+  </div>
+  <div class="step" data-step="1">
+    <div class="card">
+      <div class="stepnum">2012 · A decade of movement</div>
+      <h4>Europe shifts. China surges.</h4>
+      <p>By 2012 Germany and the UK have pushed their renewable shares higher. But <strong>China tells a different story</strong>: renewables barely moved while emissions roughly doubled as the economy grew. This is a key point: the energy transition and economic development are running simultaneously, and development is faster.</p>
+    </div>
+  </div>
+  <div class="step" data-step="2">
+    <div class="card">
+      <div class="stepnum">2023 · Where things stand</div>
+      <h4>A signal, but not as expected.</h4>
+      <p>By 2023, a loose negative slope appears: countries with more renewables do tend toward lower emissions. But the relationship isn't a perfect fit, and Brazil still sits as an outlier from 2000. <strong>The real question isn't any single year's snapshot, but the direction each country has travelled over the full two decades.</strong> That's what comes next.</p>
+    </div>
+  </div>
+  </div>
+  </div>
+
+<div class="scrolly" id="scrolly-sea">
+  <div class="scrolly-graphic">
+    <div class="chart-card">
+      <h3>Global Mean Sea Level Rise, 2000–2023</h3>
+      <div class="subtitle" id="sea-caption">Satellite altimetry from 1993 baseline · Source: NASA-SSH · only ever climbs</div>
+      <svg id="sea-chart"></svg>
+    </div>
+  </div>
+  <div class="scrolly-steps">
+    <div class="step" data-step="0">
+  <div class="card">
+    <div class="stepnum">Step 1</div>
+    <h4>The impact that never resets.</h4>
+    <p>Unlike temperature, sea level rise <strong>accumulates</strong>. This NASA satellite record climbed over 7 centimetres between 2000 and 2023, and the pace is accelerating. This is the physical consequence side of the question, regardless of what countries do with their energy mix, this is already happening.</p>
+  </div>
+</div>
+<div class="step" data-step="1">
+  <div class="card">
+    <div class="stepnum">Step 2</div>
+    <h4>Extreme weather events alongside.</h4>
+    <p>We overlay the average annual <strong>natural disaster count</strong> across our fifteen countries (EM-DAT). It bounces year to year. Some nations are hit harder, some less, but notice that the cumulative sea level never pauses regardless of whether disasters spike or dip. <strong>The physical system doesn't respond to individual events.</strong></p>
+  </div>
+</div>
+<div class="step" data-step="2">
+  <div class="card">
+    <div class="stepnum">Step 3</div>
+    <h4>The transition is a race against this.</h4>
+    <p>Whether a country is winning or losing the energy transition, the ocean keeps rising. The renewables-vs-emissions question we've been tracking is really a question about <strong>how fast countries can decarbonise relative to how fast the physical consequences are accumulating.</strong> The answer so far: not fast enough.</p>
+  </div>
+</div>
+  </div>
+</div>
+
+<div class="beat" id="quadrant-intro">
+  <div class="kicker reveal">The Answer</div>
+  <h2 class="reveal">So, does building renewables<br/>actually <em>cut</em> emissions?</h2>
+  <p class="reveal">This is a question that comes naturally from what we've seen so far. We measured each country's 20-year <strong>direction of travel</strong> using real OWID data: how fast its renewable share changed, and how fast its CO₂-per-person changed. A country in the top-right corner grew renewables <em>and</em> cut emissions, the "win-win." Everything else is a qualified answer.</p>
+</div>
+
+<section class="reveal" id="quadrant">
+  <div class="chart-card">
+    <h3>Two Decades of Direction — Renewables vs. Emissions</h3>
+    <div class="subtitle">Each dot = one country's 20-year trend slope. → right = renewables rising · ↑ up = emissions falling. Top-right is the "win–win."</div>
+    <svg id="quad-chart"></svg>
+    <div class="legend" id="quad-legend"></div>
+  </div>
+  <div class="callout reveal">
+    <div class="big">9<span class="den">/15</span></div>
+    <div class="txt">Nine of fifteen countries landed in the win–win corner with renewables rising <em>and</em> emissions falling. However, six countries did not land in this corner, and many more not featured did not achieve this. The energy transition is real, but it is not running fast enough, nor broadly enough, to match the physical changes already underway.</div>
+  </div>
+</section>
+
+<div class="beat" id="quiz">
+  <div class="kicker reveal">Chapter 2 · Test Yourself</div>
+  <h2 class="reveal">Four questions. <em>Commit</em> before you peek.</h2>
+  <p class="reveal">You've seen the real charts. Now find out whether your mental model matches the data — or just the headlines.</p>
+</div>
+
+<section class="reveal">
+  <div class="quiz" id="quiz-box"></div>
+  <div class="scorecard" id="scorecard">
+    <div class="bignum" id="score-num">0/4</div>
+    <div class="insight" id="score-insight"></div>
+  </div>
+</section>
+
+<div class="beat">
+  <div class="kicker reveal">What does this mean?</div>
+  <h2 class="reveal">Progress is happening.<br/>But it isn't <em>uniform</em>, and the ocean<br/>doesn't wait.</h2>
+  <p class="reveal lead">Nine of fifteen countries observed cut per-capita emissions while growing renewables, genuine, measurable progress. Even so, sea level rose over 7cm and continues accelerating. The temperature anomaly continues to rise without any sign of stopping. On a global scale, even with good efforts, there must be more done in order to decarbonize.</p>
+  <div class="note reveal"><strong>Data sources.</strong> Temperature: Berkeley Earth country-level annual means. CO₂ and renewables: Our World in Data (Global Carbon Project / BP). Extreme weather: EM-DAT International Disaster Database. Sea level: NASA-SSH satellite altimetry. Population: Our World in Data.</div>
+</div>
+
+<div class="beat" id="explore">
+  <div class="kicker reveal">The Sandbox</div>
+  <h2 class="reveal">Explore the question <em>yourself.</em></h2>
+  <p class="reveal">The charts above told one story, but the data supports many. Does higher temperature correlate with more extreme weather? Do high-emissions countries have the lowest renewable shares? Do the countries cutting emissions fastest also have the highest sea level exposure? Plot any two indicators, rank all fifteen countries, and find out.</p>
+</div>
+
+<section class="reveal" style="max-width:1180px;">
+  <div class="sandbox-grid">
+    <div class="chart-card">
+      <h3>Compare Any Two Indicators</h3>
+      <div class="subtitle">Choose what goes on each axis, then pick a year</div>
+      <div class="controls">
+        <label>X:</label><select id="xy-x"></select>
+        <label>Y:</label><select id="xy-y"></select>
+      </div>
+      <div class="controls" style="margin-top:-.6rem;">
+        <label>Year: <strong id="xy-year-label">2012</strong></label>
+        <input type="range" id="xy-year" min="2000" max="2023" value="2012" step="1"/>
+      </div>
+      <svg id="xy-chart"></svg>
+    </div>
+    <div class="chart-card">
+      <h3>Rank the Countries</h3>
+      <div class="subtitle">Sort all fifteen on any metric, in any year</div>
+      <div class="controls">
+        <label>Metric:</label>
+        <select id="bar-metric">
+          <option value="CO2 Emissions (Tons/Capita)">CO₂ Emissions (Tons/Capita)</option>
+          <option value="Renewable Energy (%)">Renewable Energy (%)</option>
+          <option value="Extreme Weather Events">Extreme Weather Events</option>
+          <option value="Avg Temperature (°C)">Avg Temperature (°C)</option>
+          <option value="Sea Level Rise (cm)">Sea Level Rise (cm)</option>
+        </select>
+        <label>Year:</label><select id="bar-year"></select>
+      </div>
+      <svg id="bar-chart"></svg>
+    </div>
+  </div>
+</section>
+
+<section style="max-width:880px;">
+  <div class="writeup reveal">
+    <h2>📝 About this project</h2>
+    <div class="q">What question does this explore?</div>
+    <p>Are the countries building renewable energy actually cutting emissions, and what have two decades of climate impacts looked like in the meantime? We tracked five signals (temperature, CO₂ emissions, renewable energy share, sea level rise, and extreme weather events) across fifteen countries from 2000 to 2023 to find out.</p>
+    <div class="q">What did we find?</div>
+    <p>Some countries raised their renewable share while also cutting per-capita CO₂. But many countries did not, especially countries home to millions or billions of people. Meanwhile, global mean sea level rose over 7cm and continues accelerating, while global temperature anomaly continues to increase, regardless of any individual country's progress. It is not up to any individual country to "do more," but rather, a global effort is needed in order to address the climate crisis.</p>
+    <div class="q">Why these five indicators?</div>
+    <p>Temperature and sea level rise measure what the climate is doing regardless of human action. CO₂ emissions and renewable energy share measure what countries are contributing and how fast they are transitioning. Extreme weather events connect the two, as it is a rough proxy for how climate impacts are showing up on the ground. Together, they let us ask both sides of the question: are countries doing enough, and what is happening while they do it?</p>
+    <div class="q">Data sources</div>
+    <p>Temperature: Berkeley Earth country-level annual means. CO₂ emissions and renewable energy share: Our World in Data (sourced from Global Carbon Project and BP Statistical Review). Extreme weather events: EM-DAT International Disaster Database (natural disasters only). Sea level: NASA-SSH Global Mean Sea Level from Simple Gridded Sea Surface Height (Version 1, annual means). Population: Our World in Data.</p>
+    <div class="q">How was it built?</div>
+    <p>D3.js v7 throughout: a temperature anomaly prediction game, a three-panel sticky scrollytelling sequence, a per-country trend quadrant, a commit-then-reveal quiz, and a two-panel exploration sandbox.</p>
+  </div>
+</section>
+
+<footer>
+  <p>An Explorable Explanation · <span>Climate Signals — Real Data Edition</span> · Aaditya Aswadhati, Nainika Neerukonda, Ryan Atienza</p>
+  <p style="margin-top:.4rem;">Are countries building clean energy actually cutting emissions? · Data: Berkeley Earth · Our World in Data · NASA-SSH · EM-DAT · Built with D3.js v7</p>
+</footer>
+
+<div class="tooltip" id="tooltip" style="display:none;"></div>
+
+<script>
+// ─── REAL DATA ────────────────────────────────────────────────────────────────
+const data = [{"Year": 2000, "Country": "Argentina", "Avg Temperature (\u00b0C)": 14.45, "CO2 Emissions (Tons/Capita)": 3.852, "Sea Level Rise (cm)": 2.28, "Population": 37213986, "Renewable Energy (%)": 11.56, "Extreme Weather Events": 8}, {"Year": 2001, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.07, "CO2 Emissions (Tons/Capita)": 3.588, "Sea Level Rise (cm)": 2.83, "Population": 37624817, "Renewable Energy (%)": 15.04, "Extreme Weather Events": 7}, {"Year": 2002, "Country": "Argentina", "Avg Temperature (\u00b0C)": 14.83, "CO2 Emissions (Tons/Capita)": 3.285, "Sea Level Rise (cm)": 2.76, "Population": 38029345, "Renewable Energy (%)": 15.33, "Extreme Weather Events": 4}, {"Year": 2003, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.22, "CO2 Emissions (Tons/Capita)": 3.498, "Sea Level Rise (cm)": 3.15, "Population": 38424283, "Renewable Energy (%)": 13.61, "Extreme Weather Events": 4}, {"Year": 2004, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.2, "CO2 Emissions (Tons/Capita)": 4.051, "Sea Level Rise (cm)": 3.17, "Population": 38815915, "Renewable Energy (%)": 11.46, "Extreme Weather Events": 3}, {"Year": 2005, "Country": "Argentina", "Avg Temperature (\u00b0C)": 14.86, "CO2 Emissions (Tons/Capita)": 4.124, "Sea Level Rise (cm)": 3.46, "Population": 39216786, "Renewable Energy (%)": 12.03, "Extreme Weather Events": 1}, {"Year": 2006, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.38, "CO2 Emissions (Tons/Capita)": 4.4, "Sea Level Rise (cm)": 3.64, "Population": 39622113, "Renewable Energy (%)": 12.68, "Extreme Weather Events": 1}, {"Year": 2007, "Country": "Argentina", "Avg Temperature (\u00b0C)": 14.41, "CO2 Emissions (Tons/Capita)": 4.342, "Sea Level Rise (cm)": 3.55, "Population": 40016767, "Renewable Energy (%)": 10.02, "Extreme Weather Events": 3}, {"Year": 2008, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.3, "CO2 Emissions (Tons/Capita)": 4.641, "Sea Level Rise (cm)": 4.11, "Population": 40424151, "Renewable Energy (%)": 9.87, "Extreme Weather Events": 2}, {"Year": 2009, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.34, "CO2 Emissions (Tons/Capita)": 4.366, "Sea Level Rise (cm)": 4.49, "Population": 40854832, "Renewable Energy (%)": 11.19, "Extreme Weather Events": 6}, {"Year": 2010, "Country": "Argentina", "Avg Temperature (\u00b0C)": 14.85, "CO2 Emissions (Tons/Capita)": 4.508, "Sea Level Rise (cm)": 4.74, "Population": 41288694, "Renewable Energy (%)": 11.09, "Extreme Weather Events": 1}, {"Year": 2011, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.13, "CO2 Emissions (Tons/Capita)": 4.55, "Sea Level Rise (cm)": 4.55, "Population": 41730655, "Renewable Energy (%)": 10.41, "Extreme Weather Events": 1}, {"Year": 2012, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.52, "CO2 Emissions (Tons/Capita)": 4.547, "Sea Level Rise (cm)": 5.42, "Population": 42161718, "Renewable Energy (%)": 9.7, "Extreme Weather Events": 3}, {"Year": 2013, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.34, "CO2 Emissions (Tons/Capita)": 4.451, "Sea Level Rise (cm)": 5.49, "Population": 42582453, "Renewable Energy (%)": 10.13, "Extreme Weather Events": 2}, {"Year": 2014, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.35, "CO2 Emissions (Tons/Capita)": 4.382, "Sea Level Rise (cm)": 5.95, "Population": 43024071, "Renewable Energy (%)": 10.4, "Extreme Weather Events": 4}, {"Year": 2015, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.48, "CO2 Emissions (Tons/Capita)": 4.412, "Sea Level Rise (cm)": 6.62, "Population": 43477011, "Renewable Energy (%)": 10.28, "Extreme Weather Events": 5}, {"Year": 2016, "Country": "Argentina", "Avg Temperature (\u00b0C)": 14.98, "CO2 Emissions (Tons/Capita)": 4.328, "Sea Level Rise (cm)": 7.16, "Population": 43900312, "Renewable Energy (%)": 9.59, "Extreme Weather Events": 2}, {"Year": 2017, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.53, "CO2 Emissions (Tons/Capita)": 4.224, "Sea Level Rise (cm)": 7.23, "Population": 44288898, "Renewable Energy (%)": 10.45, "Extreme Weather Events": 4}, {"Year": 2018, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.21, "CO2 Emissions (Tons/Capita)": 4.087, "Sea Level Rise (cm)": 7.54, "Population": 44654876, "Renewable Energy (%)": 10.82, "Extreme Weather Events": 5}, {"Year": 2019, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.19, "CO2 Emissions (Tons/Capita)": 4.012, "Sea Level Rise (cm)": 8.22, "Population": 44973469, "Renewable Energy (%)": 11.42, "Extreme Weather Events": 4}, {"Year": 2020, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.52, "CO2 Emissions (Tons/Capita)": 3.643, "Sea Level Rise (cm)": 8.32, "Population": 45191960, "Renewable Energy (%)": 11.83, "Extreme Weather Events": 2}, {"Year": 2021, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.4, "CO2 Emissions (Tons/Capita)": 4.197, "Sea Level Rise (cm)": 8.91, "Population": 45312282, "Renewable Energy (%)": 10.95, "Extreme Weather Events": 3}, {"Year": 2022, "Country": "Argentina", "Avg Temperature (\u00b0C)": 15.07, "CO2 Emissions (Tons/Capita)": 4.047, "Sea Level Rise (cm)": 9.41, "Population": 45407904, "Renewable Energy (%)": 12.01, "Extreme Weather Events": 1}, {"Year": 2023, "Country": "Argentina", "Avg Temperature (\u00b0C)": 16.8, "CO2 Emissions (Tons/Capita)": 3.918, "Sea Level Rise (cm)": 9.72, "Population": 45538402, "Renewable Energy (%)": 14.1, "Extreme Weather Events": 4}, {"Year": 2000, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.45, "CO2 Emissions (Tons/Capita)": 18.288, "Sea Level Rise (cm)": 2.28, "Population": 19132472, "Renewable Energy (%)": 3.76, "Extreme Weather Events": 6}, {"Year": 2001, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.47, "CO2 Emissions (Tons/Capita)": 18.469, "Sea Level Rise (cm)": 2.83, "Population": 19365438, "Renewable Energy (%)": 3.66, "Extreme Weather Events": 9}, {"Year": 2002, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.16, "CO2 Emissions (Tons/Capita)": 18.495, "Sea Level Rise (cm)": 2.76, "Population": 19595356, "Renewable Energy (%)": 3.71, "Extreme Weather Events": 5}, {"Year": 2003, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.12, "CO2 Emissions (Tons/Capita)": 18.708, "Sea Level Rise (cm)": 3.15, "Population": 19819449, "Renewable Energy (%)": 3.8, "Extreme Weather Events": 10}, {"Year": 2004, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.99, "CO2 Emissions (Tons/Capita)": 19.056, "Sea Level Rise (cm)": 3.17, "Population": 20046679, "Renewable Energy (%)": 3.83, "Extreme Weather Events": 7}, {"Year": 2005, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.47, "CO2 Emissions (Tons/Capita)": 18.975, "Sea Level Rise (cm)": 3.46, "Population": 20294490, "Renewable Energy (%)": 4.1, "Extreme Weather Events": 4}, {"Year": 2006, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.83, "CO2 Emissions (Tons/Capita)": 19.007, "Sea Level Rise (cm)": 3.64, "Population": 20590566, "Renewable Energy (%)": 4.02, "Extreme Weather Events": 8}, {"Year": 2007, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.98, "CO2 Emissions (Tons/Capita)": 19.036, "Sea Level Rise (cm)": 3.55, "Population": 20954545, "Renewable Energy (%)": 3.79, "Extreme Weather Events": 2}, {"Year": 2008, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.7, "CO2 Emissions (Tons/Capita)": 18.918, "Sea Level Rise (cm)": 4.11, "Population": 21370595, "Renewable Energy (%)": 3.5, "Extreme Weather Events": 5}, {"Year": 2009, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.11, "CO2 Emissions (Tons/Capita)": 18.683, "Sea Level Rise (cm)": 4.49, "Population": 21783014, "Renewable Energy (%)": 3.72, "Extreme Weather Events": 6}, {"Year": 2010, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.48, "CO2 Emissions (Tons/Capita)": 18.293, "Sea Level Rise (cm)": 4.74, "Population": 22141583, "Renewable Energy (%)": 4.09, "Extreme Weather Events": 8}, {"Year": 2011, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.44, "CO2 Emissions (Tons/Capita)": 17.966, "Sea Level Rise (cm)": 4.55, "Population": 22479779, "Renewable Energy (%)": 5.39, "Extreme Weather Events": 3}, {"Year": 2012, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.75, "CO2 Emissions (Tons/Capita)": 17.722, "Sea Level Rise (cm)": 5.42, "Population": 22852648, "Renewable Energy (%)": 5.4, "Extreme Weather Events": 2}, {"Year": 2013, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.72, "CO2 Emissions (Tons/Capita)": 17.122, "Sea Level Rise (cm)": 5.49, "Population": 23236271, "Renewable Energy (%)": 6.17, "Extreme Weather Events": 3}, {"Year": 2014, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.53, "CO2 Emissions (Tons/Capita)": 16.639, "Sea Level Rise (cm)": 5.95, "Population": 23595599, "Renewable Energy (%)": 5.66, "Extreme Weather Events": 4}, {"Year": 2015, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.33, "CO2 Emissions (Tons/Capita)": 16.727, "Sea Level Rise (cm)": 6.62, "Population": 23947997, "Renewable Energy (%)": 5.96, "Extreme Weather Events": 8}, {"Year": 2016, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.41, "CO2 Emissions (Tons/Capita)": 16.838, "Sea Level Rise (cm)": 7.16, "Population": 24329963, "Renewable Energy (%)": 6.79, "Extreme Weather Events": 4}, {"Year": 2017, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.48, "CO2 Emissions (Tons/Capita)": 16.716, "Sea Level Rise (cm)": 7.23, "Population": 24731044, "Renewable Energy (%)": 6.37, "Extreme Weather Events": 3}, {"Year": 2018, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.49, "CO2 Emissions (Tons/Capita)": 16.512, "Sea Level Rise (cm)": 7.54, "Population": 25119700, "Renewable Energy (%)": 7.85, "Extreme Weather Events": 3}, {"Year": 2019, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.78, "CO2 Emissions (Tons/Capita)": 16.283, "Sea Level Rise (cm)": 8.22, "Population": 25482714, "Renewable Energy (%)": 8.41, "Extreme Weather Events": 3}, {"Year": 2020, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.56, "CO2 Emissions (Tons/Capita)": 15.481, "Sea Level Rise (cm)": 8.32, "Population": 25743787, "Renewable Energy (%)": 10.29, "Extreme Weather Events": 3}, {"Year": 2021, "Country": "Australia", "Avg Temperature (\u00b0C)": 22.05, "CO2 Emissions (Tons/Capita)": 14.966, "Sea Level Rise (cm)": 8.91, "Population": 25956417, "Renewable Energy (%)": 12.28, "Extreme Weather Events": 7}, {"Year": 2022, "Country": "Australia", "Avg Temperature (\u00b0C)": 21.96, "CO2 Emissions (Tons/Capita)": 14.659, "Sea Level Rise (cm)": 9.41, "Population": 26200987, "Renewable Energy (%)": 13.25, "Extreme Weather Events": 5}, {"Year": 2023, "Country": "Australia", "Avg Temperature (\u00b0C)": 17.8, "CO2 Emissions (Tons/Capita)": 14.529, "Sea Level Rise (cm)": 9.72, "Population": 26451126, "Renewable Energy (%)": 14.32, "Extreme Weather Events": 6}, {"Year": 2000, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.09, "CO2 Emissions (Tons/Capita)": 1.955, "Sea Level Rise (cm)": 2.28, "Population": 174018278, "Renewable Energy (%)": 40.94, "Extreme Weather Events": 5}, {"Year": 2001, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.35, "CO2 Emissions (Tons/Capita)": 1.963, "Sea Level Rise (cm)": 2.83, "Population": 176301201, "Renewable Energy (%)": 37.18, "Extreme Weather Events": 5}, {"Year": 2002, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.62, "CO2 Emissions (Tons/Capita)": 1.948, "Sea Level Rise (cm)": 2.76, "Population": 178503485, "Renewable Energy (%)": 38.82, "Extreme Weather Events": 6}, {"Year": 2003, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.42, "CO2 Emissions (Tons/Capita)": 1.908, "Sea Level Rise (cm)": 3.15, "Population": 180622688, "Renewable Energy (%)": 40.45, "Extreme Weather Events": 5}, {"Year": 2004, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.35, "CO2 Emissions (Tons/Capita)": 1.979, "Sea Level Rise (cm)": 3.17, "Population": 182675144, "Renewable Energy (%)": 40.44, "Extreme Weather Events": 5}, {"Year": 2005, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.61, "CO2 Emissions (Tons/Capita)": 1.973, "Sea Level Rise (cm)": 3.46, "Population": 184688101, "Renewable Energy (%)": 41.27, "Extreme Weather Events": 4}, {"Year": 2006, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.41, "CO2 Emissions (Tons/Capita)": 1.976, "Sea Level Rise (cm)": 3.64, "Population": 186653099, "Renewable Energy (%)": 41.15, "Extreme Weather Events": 2}, {"Year": 2007, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.53, "CO2 Emissions (Tons/Capita)": 2.071, "Sea Level Rise (cm)": 3.55, "Population": 188552311, "Renewable Energy (%)": 42.28, "Extreme Weather Events": 6}, {"Year": 2008, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.24, "CO2 Emissions (Tons/Capita)": 2.168, "Sea Level Rise (cm)": 4.11, "Population": 190367297, "Renewable Energy (%)": 41.39, "Extreme Weather Events": 6}, {"Year": 2009, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.43, "CO2 Emissions (Tons/Capita)": 2.029, "Sea Level Rise (cm)": 4.49, "Population": 192079958, "Renewable Energy (%)": 44.16, "Extreme Weather Events": 10}, {"Year": 2010, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.67, "CO2 Emissions (Tons/Capita)": 2.273, "Sea Level Rise (cm)": 4.74, "Population": 193701931, "Renewable Energy (%)": 42.51, "Extreme Weather Events": 5}, {"Year": 2011, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.35, "CO2 Emissions (Tons/Capita)": 2.365, "Sea Level Rise (cm)": 4.55, "Population": 195284736, "Renewable Energy (%)": 42.38, "Extreme Weather Events": 9}, {"Year": 2012, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.56, "CO2 Emissions (Tons/Capita)": 2.527, "Sea Level Rise (cm)": 5.42, "Population": 196876113, "Renewable Energy (%)": 40.26, "Extreme Weather Events": 3}, {"Year": 2013, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.49, "CO2 Emissions (Tons/Capita)": 2.678, "Sea Level Rise (cm)": 5.49, "Population": 198478290, "Renewable Energy (%)": 38.41, "Extreme Weather Events": 6}, {"Year": 2014, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.66, "CO2 Emissions (Tons/Capita)": 2.781, "Sea Level Rise (cm)": 5.95, "Population": 200085126, "Renewable Energy (%)": 37.57, "Extreme Weather Events": 5}, {"Year": 2015, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.97, "CO2 Emissions (Tons/Capita)": 2.619, "Sea Level Rise (cm)": 6.62, "Population": 201675534, "Renewable Energy (%)": 38.71, "Extreme Weather Events": 6}, {"Year": 2016, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.84, "CO2 Emissions (Tons/Capita)": 2.42, "Sea Level Rise (cm)": 7.16, "Population": 203218108, "Renewable Energy (%)": 41.54, "Extreme Weather Events": 3}, {"Year": 2017, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.77, "CO2 Emissions (Tons/Capita)": 2.429, "Sea Level Rise (cm)": 7.23, "Population": 204703440, "Renewable Energy (%)": 41.29, "Extreme Weather Events": 2}, {"Year": 2018, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.59, "CO2 Emissions (Tons/Capita)": 2.312, "Sea Level Rise (cm)": 7.54, "Population": 206107265, "Renewable Energy (%)": 44.13, "Extreme Weather Events": 3}, {"Year": 2019, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.94, "CO2 Emissions (Tons/Capita)": 2.298, "Sea Level Rise (cm)": 8.22, "Population": 207455459, "Renewable Energy (%)": 45.18, "Extreme Weather Events": 8}, {"Year": 2020, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.93, "CO2 Emissions (Tons/Capita)": 2.147, "Sea Level Rise (cm)": 8.32, "Population": 208660845, "Renewable Energy (%)": 47.12, "Extreme Weather Events": 7}, {"Year": 2021, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.57, "CO2 Emissions (Tons/Capita)": 2.37, "Sea Level Rise (cm)": 8.91, "Population": 209550291, "Renewable Energy (%)": 43.67, "Extreme Weather Events": 9}, {"Year": 2022, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.54, "CO2 Emissions (Tons/Capita)": 2.283, "Sea Level Rise (cm)": 9.41, "Population": 210306411, "Renewable Energy (%)": 47.66, "Extreme Weather Events": 12}, {"Year": 2023, "Country": "Brazil", "Avg Temperature (\u00b0C)": 25.9, "CO2 Emissions (Tons/Capita)": 2.292, "Sea Level Rise (cm)": 9.72, "Population": 211140731, "Renewable Energy (%)": 48.95, "Extreme Weather Events": 16}, {"Year": 2000, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.24, "CO2 Emissions (Tons/Capita)": 18.344, "Sea Level Rise (cm)": 2.28, "Population": 30891800, "Renewable Energy (%)": 28.54, "Extreme Weather Events": 1}, {"Year": 2001, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.34, "CO2 Emissions (Tons/Capita)": 17.908, "Sea Level Rise (cm)": 2.83, "Population": 31213578, "Renewable Energy (%)": 27.03, "Extreme Weather Events": 3}, {"Year": 2002, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.46, "CO2 Emissions (Tons/Capita)": 17.893, "Sea Level Rise (cm)": 2.76, "Population": 31535579, "Renewable Energy (%)": 27.33, "Extreme Weather Events": 3}, {"Year": 2003, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.96, "CO2 Emissions (Tons/Capita)": 18.255, "Sea Level Rise (cm)": 3.15, "Population": 31836483, "Renewable Energy (%)": 26.02, "Extreme Weather Events": 7}, {"Year": 2004, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.9, "CO2 Emissions (Tons/Capita)": 17.935, "Sea Level Rise (cm)": 3.17, "Population": 32132680, "Renewable Energy (%)": 25.7, "Extreme Weather Events": 4}, {"Year": 2005, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.37, "CO2 Emissions (Tons/Capita)": 17.583, "Sea Level Rise (cm)": 3.46, "Population": 32440172, "Renewable Energy (%)": 27.04, "Extreme Weather Events": 5}, {"Year": 2006, "Country": "Canada", "Avg Temperature (\u00b0C)": -2.72, "CO2 Emissions (Tons/Capita)": 17.287, "Sea Level Rise (cm)": 3.64, "Population": 32759174, "Renewable Energy (%)": 27.21, "Extreme Weather Events": 5}, {"Year": 2007, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.16, "CO2 Emissions (Tons/Capita)": 17.828, "Sea Level Rise (cm)": 3.55, "Population": 33092171, "Renewable Energy (%)": 26.53, "Extreme Weather Events": 3}, {"Year": 2008, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.48, "CO2 Emissions (Tons/Capita)": 17.167, "Sea Level Rise (cm)": 4.11, "Population": 33449088, "Renewable Energy (%)": 27.37, "Extreme Weather Events": 2}, {"Year": 2009, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.35, "CO2 Emissions (Tons/Capita)": 15.997, "Sea Level Rise (cm)": 4.49, "Population": 33826370, "Renewable Energy (%)": 27.99, "Extreme Weather Events": 3}, {"Year": 2010, "Country": "Canada", "Avg Temperature (\u00b0C)": -2.45, "CO2 Emissions (Tons/Capita)": 16.209, "Sea Level Rise (cm)": 4.74, "Population": 34196900, "Renewable Energy (%)": 26.57, "Extreme Weather Events": 0}, {"Year": 2011, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.83, "CO2 Emissions (Tons/Capita)": 16.288, "Sea Level Rise (cm)": 4.55, "Population": 34555449, "Renewable Energy (%)": 27.42, "Extreme Weather Events": 3}, {"Year": 2012, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.49, "CO2 Emissions (Tons/Capita)": 16.086, "Sea Level Rise (cm)": 5.42, "Population": 34922513, "Renewable Energy (%)": 27.86, "Extreme Weather Events": 3}, {"Year": 2013, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.34, "CO2 Emissions (Tons/Capita)": 16.11, "Sea Level Rise (cm)": 5.49, "Population": 35293421, "Renewable Energy (%)": 27.74, "Extreme Weather Events": 3}, {"Year": 2014, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.39, "CO2 Emissions (Tons/Capita)": 15.854, "Sea Level Rise (cm)": 5.95, "Population": 35634265, "Renewable Energy (%)": 27.03, "Extreme Weather Events": 2}, {"Year": 2015, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.88, "CO2 Emissions (Tons/Capita)": 15.655, "Sea Level Rise (cm)": 6.62, "Population": 35962236, "Renewable Energy (%)": 27.73, "Extreme Weather Events": 1}, {"Year": 2016, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.19, "CO2 Emissions (Tons/Capita)": 15.231, "Sea Level Rise (cm)": 7.16, "Population": 36353345, "Renewable Energy (%)": 28.46, "Extreme Weather Events": 2}, {"Year": 2017, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.76, "CO2 Emissions (Tons/Capita)": 15.395, "Sea Level Rise (cm)": 7.23, "Population": 36808498, "Renewable Energy (%)": 28.65, "Extreme Weather Events": 3}, {"Year": 2018, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.62, "CO2 Emissions (Tons/Capita)": 15.42, "Sea Level Rise (cm)": 7.54, "Population": 37294996, "Renewable Energy (%)": 27.66, "Extreme Weather Events": 4}, {"Year": 2019, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.33, "CO2 Emissions (Tons/Capita)": 15.325, "Sea Level Rise (cm)": 8.22, "Population": 37782934, "Renewable Energy (%)": 27.41, "Extreme Weather Events": 2}, {"Year": 2020, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.25, "CO2 Emissions (Tons/Capita)": 13.733, "Sea Level Rise (cm)": 8.32, "Population": 38171903, "Renewable Energy (%)": 29.46, "Extreme Weather Events": 2}, {"Year": 2021, "Country": "Canada", "Avg Temperature (\u00b0C)": -3.7, "CO2 Emissions (Tons/Capita)": 13.977, "Sea Level Rise (cm)": 8.91, "Population": 38454058, "Renewable Energy (%)": 29.11, "Extreme Weather Events": 4}, {"Year": 2022, "Country": "Canada", "Avg Temperature (\u00b0C)": -4.22, "CO2 Emissions (Tons/Capita)": 14.107, "Sea Level Rise (cm)": 9.41, "Population": 38821259, "Renewable Energy (%)": 29.5, "Extreme Weather Events": 6}, {"Year": 2023, "Country": "Canada", "Avg Temperature (\u00b0C)": -1.5, "CO2 Emissions (Tons/Capita)": 13.88, "Sea Level Rise (cm)": 9.72, "Population": 39299098, "Renewable Energy (%)": 27.86, "Extreme Weather Events": 4}, {"Year": 2000, "Country": "China", "Avg Temperature (\u00b0C)": 8.4, "CO2 Emissions (Tons/Capita)": 2.87, "Sea Level Rise (cm)": 2.28, "Population": 1269581174, "Renewable Energy (%)": 5.34, "Extreme Weather Events": 28}, {"Year": 2001, "Country": "China", "Avg Temperature (\u00b0C)": 9.1, "CO2 Emissions (Tons/Capita)": 2.912, "Sea Level Rise (cm)": 2.83, "Population": 1278725061, "Renewable Energy (%)": 6.25, "Extreme Weather Events": 33}, {"Year": 2002, "Country": "China", "Avg Temperature (\u00b0C)": 9.5, "CO2 Emissions (Tons/Capita)": 3.185, "Sea Level Rise (cm)": 2.76, "Population": 1286866835, "Renewable Energy (%)": 5.92, "Extreme Weather Events": 28}, {"Year": 2003, "Country": "China", "Avg Temperature (\u00b0C)": 9.0, "CO2 Emissions (Tons/Capita)": 3.735, "Sea Level Rise (cm)": 3.15, "Population": 1294517323, "Renewable Energy (%)": 5.0, "Extreme Weather Events": 27}, {"Year": 2004, "Country": "China", "Avg Temperature (\u00b0C)": 9.2, "CO2 Emissions (Tons/Capita)": 4.002, "Sea Level Rise (cm)": 3.17, "Population": 1302100316, "Renewable Energy (%)": 5.29, "Extreme Weather Events": 24}, {"Year": 2005, "Country": "China", "Avg Temperature (\u00b0C)": 9.6, "CO2 Emissions (Tons/Capita)": 4.49, "Sea Level Rise (cm)": 3.46, "Population": 1310027135, "Renewable Energy (%)": 5.24, "Extreme Weather Events": 31}, {"Year": 2006, "Country": "China", "Avg Temperature (\u00b0C)": 9.7, "CO2 Emissions (Tons/Capita)": 4.921, "Sea Level Rise (cm)": 3.64, "Population": 1318054030, "Renewable Energy (%)": 5.27, "Extreme Weather Events": 37}, {"Year": 2007, "Country": "China", "Avg Temperature (\u00b0C)": 9.8, "CO2 Emissions (Tons/Capita)": 5.261, "Sea Level Rise (cm)": 3.55, "Population": 1325813576, "Renewable Energy (%)": 5.41, "Extreme Weather Events": 18}, {"Year": 2008, "Country": "China", "Avg Temperature (\u00b0C)": 8.9, "CO2 Emissions (Tons/Capita)": 5.617, "Sea Level Rise (cm)": 4.11, "Population": 1333821011, "Renewable Energy (%)": 6.87, "Extreme Weather Events": 30}, {"Year": 2009, "Country": "China", "Avg Temperature (\u00b0C)": 9.5, "CO2 Emissions (Tons/Capita)": 5.871, "Sea Level Rise (cm)": 4.49, "Population": 1342522717, "Renewable Energy (%)": 6.56, "Extreme Weather Events": 26}, {"Year": 2010, "Country": "China", "Avg Temperature (\u00b0C)": 9.6, "CO2 Emissions (Tons/Capita)": 6.37, "Sea Level Rise (cm)": 4.74, "Population": 1351561505, "Renewable Energy (%)": 7.19, "Extreme Weather Events": 25}, {"Year": 2011, "Country": "China", "Avg Temperature (\u00b0C)": 9.3, "CO2 Emissions (Tons/Capita)": 6.999, "Sea Level Rise (cm)": 4.55, "Population": 1360250658, "Renewable Energy (%)": 6.7, "Extreme Weather Events": 20}, {"Year": 2012, "Country": "China", "Avg Temperature (\u00b0C)": 9.8, "CO2 Emissions (Tons/Capita)": 7.132, "Sea Level Rise (cm)": 5.42, "Population": 1369520866, "Renewable Energy (%)": 8.07, "Extreme Weather Events": 28}, {"Year": 2013, "Country": "China", "Avg Temperature (\u00b0C)": 9.9, "CO2 Emissions (Tons/Capita)": 7.21, "Sea Level Rise (cm)": 5.49, "Population": 1379008040, "Renewable Energy (%)": 8.47, "Extreme Weather Events": 43}, {"Year": 2014, "Country": "China", "Avg Temperature (\u00b0C)": 10.1, "CO2 Emissions (Tons/Capita)": 7.188, "Sea Level Rise (cm)": 5.95, "Population": 1387951970, "Renewable Energy (%)": 9.69, "Extreme Weather Events": 41}, {"Year": 2015, "Country": "China", "Avg Temperature (\u00b0C)": 10.3, "CO2 Emissions (Tons/Capita)": 7.061, "Sea Level Rise (cm)": 6.62, "Population": 1396134171, "Renewable Energy (%)": 10.28, "Extreme Weather Events": 36}, {"Year": 2016, "Country": "China", "Avg Temperature (\u00b0C)": 10.7, "CO2 Emissions (Tons/Capita)": 6.943, "Sea Level Rise (cm)": 7.16, "Population": 1404052628, "Renewable Energy (%)": 11.11, "Extreme Weather Events": 33}, {"Year": 2017, "Country": "China", "Avg Temperature (\u00b0C)": 10.1, "CO2 Emissions (Tons/Capita)": 7.08, "Sea Level Rise (cm)": 7.23, "Population": 1412354730, "Renewable Energy (%)": 11.67, "Extreme Weather Events": 30}, {"Year": 2018, "Country": "China", "Avg Temperature (\u00b0C)": 10.2, "CO2 Emissions (Tons/Capita)": 7.292, "Sea Level Rise (cm)": 7.54, "Population": 1419008954, "Renewable Energy (%)": 12.22, "Extreme Weather Events": 22}, {"Year": 2019, "Country": "China", "Avg Temperature (\u00b0C)": 10.5, "CO2 Emissions (Tons/Capita)": 7.526, "Sea Level Rise (cm)": 8.22, "Population": 1423520357, "Renewable Energy (%)": 12.79, "Extreme Weather Events": 16}, {"Year": 2020, "Country": "China", "Avg Temperature (\u00b0C)": 10.6, "CO2 Emissions (Tons/Capita)": 7.641, "Sea Level Rise (cm)": 8.32, "Population": 1426106093, "Renewable Energy (%)": 13.4, "Extreme Weather Events": 12}, {"Year": 2021, "Country": "China", "Avg Temperature (\u00b0C)": 10.4, "CO2 Emissions (Tons/Capita)": 7.911, "Sea Level Rise (cm)": 8.91, "Population": 1426437269, "Renewable Energy (%)": 14.2, "Extreme Weather Events": 17}, {"Year": 2022, "Country": "China", "Avg Temperature (\u00b0C)": 10.5, "CO2 Emissions (Tons/Capita)": 8.218, "Sea Level Rise (cm)": 9.41, "Population": 1425179562, "Renewable Energy (%)": 15.22, "Extreme Weather Events": 12}, {"Year": 2023, "Country": "China", "Avg Temperature (\u00b0C)": 10.9, "CO2 Emissions (Tons/Capita)": 8.556, "Sea Level Rise (cm)": 9.72, "Population": 1422584930, "Renewable Energy (%)": 15.51, "Extreme Weather Events": 17}, {"Year": 2000, "Country": "France", "Avg Temperature (\u00b0C)": 11.85, "CO2 Emissions (Tons/Capita)": 6.85, "Sea Level Rise (cm)": 2.28, "Population": 59483716, "Renewable Energy (%)": 6.41, "Extreme Weather Events": 6}, {"Year": 2001, "Country": "France", "Avg Temperature (\u00b0C)": 11.41, "CO2 Emissions (Tons/Capita)": 6.871, "Sea Level Rise (cm)": 2.83, "Population": 59905131, "Renewable Energy (%)": 7.07, "Extreme Weather Events": 7}, {"Year": 2002, "Country": "France", "Avg Temperature (\u00b0C)": 11.84, "CO2 Emissions (Tons/Capita)": 6.747, "Sea Level Rise (cm)": 2.76, "Population": 60327247, "Renewable Energy (%)": 5.88, "Extreme Weather Events": 4}, {"Year": 2003, "Country": "France", "Avg Temperature (\u00b0C)": 11.88, "CO2 Emissions (Tons/Capita)": 6.799, "Sea Level Rise (cm)": 3.15, "Population": 60741119, "Renewable Energy (%)": 5.67, "Extreme Weather Events": 6}, {"Year": 2004, "Country": "France", "Avg Temperature (\u00b0C)": 11.36, "CO2 Emissions (Tons/Capita)": 6.769, "Sea Level Rise (cm)": 3.17, "Population": 61175244, "Renewable Energy (%)": 5.68, "Extreme Weather Events": 1}, {"Year": 2005, "Country": "France", "Avg Temperature (\u00b0C)": 11.35, "CO2 Emissions (Tons/Capita)": 6.756, "Sea Level Rise (cm)": 3.46, "Population": 61625031, "Renewable Energy (%)": 5.12, "Extreme Weather Events": 5}, {"Year": 2006, "Country": "France", "Avg Temperature (\u00b0C)": 11.93, "CO2 Emissions (Tons/Capita)": 6.554, "Sea Level Rise (cm)": 3.64, "Population": 62049831, "Renewable Energy (%)": 5.7, "Extreme Weather Events": 3}, {"Year": 2007, "Country": "France", "Avg Temperature (\u00b0C)": 11.62, "CO2 Emissions (Tons/Capita)": 6.35, "Sea Level Rise (cm)": 3.55, "Population": 62432438, "Renewable Energy (%)": 6.36, "Extreme Weather Events": 3}, {"Year": 2008, "Country": "France", "Avg Temperature (\u00b0C)": 11.31, "CO2 Emissions (Tons/Capita)": 6.209, "Sea Level Rise (cm)": 4.11, "Population": 62780187, "Renewable Energy (%)": 7.32, "Extreme Weather Events": 2}, {"Year": 2009, "Country": "France", "Avg Temperature (\u00b0C)": 11.7, "CO2 Emissions (Tons/Capita)": 5.885, "Sea Level Rise (cm)": 4.49, "Population": 63106460, "Renewable Energy (%)": 7.41, "Extreme Weather Events": 5}, {"Year": 2010, "Country": "France", "Avg Temperature (\u00b0C)": 10.63, "CO2 Emissions (Tons/Capita)": 5.946, "Sea Level Rise (cm)": 4.74, "Population": 63417366, "Renewable Energy (%)": 7.88, "Extreme Weather Events": 4}, {"Year": 2011, "Country": "France", "Avg Temperature (\u00b0C)": 12.31, "CO2 Emissions (Tons/Capita)": 5.572, "Sea Level Rise (cm)": 4.55, "Population": 63733776, "Renewable Energy (%)": 6.93, "Extreme Weather Events": 1}, {"Year": 2012, "Country": "France", "Avg Temperature (\u00b0C)": 11.54, "CO2 Emissions (Tons/Capita)": 5.59, "Sea Level Rise (cm)": 5.42, "Population": 64058465, "Renewable Energy (%)": 8.71, "Extreme Weather Events": 1}, {"Year": 2013, "Country": "France", "Avg Temperature (\u00b0C)": 11.1, "CO2 Emissions (Tons/Capita)": 5.591, "Sea Level Rise (cm)": 5.49, "Population": 64387736, "Renewable Energy (%)": 9.86, "Extreme Weather Events": 4}, {"Year": 2014, "Country": "France", "Avg Temperature (\u00b0C)": 12.48, "CO2 Emissions (Tons/Capita)": 5.067, "Sea Level Rise (cm)": 5.95, "Population": 64692495, "Renewable Energy (%)": 9.88, "Extreme Weather Events": 7}, {"Year": 2015, "Country": "France", "Avg Temperature (\u00b0C)": 12.17, "CO2 Emissions (Tons/Capita)": 5.116, "Sea Level Rise (cm)": 6.62, "Population": 64916337, "Renewable Energy (%)": 9.57, "Extreme Weather Events": 3}, {"Year": 2016, "Country": "France", "Avg Temperature (\u00b0C)": 11.74, "CO2 Emissions (Tons/Capita)": 5.155, "Sea Level Rise (cm)": 7.16, "Population": 65086853, "Renewable Energy (%)": 10.36, "Extreme Weather Events": 1}, {"Year": 2017, "Country": "France", "Avg Temperature (\u00b0C)": 11.96, "CO2 Emissions (Tons/Capita)": 5.183, "Sea Level Rise (cm)": 7.23, "Population": 65284775, "Renewable Energy (%)": 9.8, "Extreme Weather Events": 3}, {"Year": 2018, "Country": "France", "Avg Temperature (\u00b0C)": 12.64, "CO2 Emissions (Tons/Capita)": 4.931, "Sea Level Rise (cm)": 7.54, "Population": 65519537, "Renewable Energy (%)": 11.51, "Extreme Weather Events": 7}, {"Year": 2019, "Country": "France", "Avg Temperature (\u00b0C)": 12.38, "CO2 Emissions (Tons/Capita)": 4.812, "Sea Level Rise (cm)": 8.22, "Population": 65729460, "Renewable Energy (%)": 11.75, "Extreme Weather Events": 11}, {"Year": 2020, "Country": "France", "Avg Temperature (\u00b0C)": 12.73, "CO2 Emissions (Tons/Capita)": 4.272, "Sea Level Rise (cm)": 8.32, "Population": 65905273, "Renewable Energy (%)": 13.97, "Extreme Weather Events": 8}, {"Year": 2021, "Country": "France", "Avg Temperature (\u00b0C)": 11.58, "CO2 Emissions (Tons/Capita)": 4.65, "Sea Level Rise (cm)": 8.91, "Population": 66083547, "Renewable Energy (%)": 12.91, "Extreme Weather Events": 9}, {"Year": 2022, "Country": "France", "Avg Temperature (\u00b0C)": 13.16, "CO2 Emissions (Tons/Capita)": 4.456, "Sea Level Rise (cm)": 9.41, "Population": 66277412, "Renewable Energy (%)": 13.73, "Extreme Weather Events": 6}, {"Year": 2023, "Country": "France", "Avg Temperature (\u00b0C)": 13.2, "CO2 Emissions (Tons/Capita)": 4.068, "Sea Level Rise (cm)": 9.72, "Population": 66438828, "Renewable Energy (%)": 15.87, "Extreme Weather Events": 8}, {"Year": 2000, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.09, "CO2 Emissions (Tons/Capita)": 10.99, "Sea Level Rise (cm)": 2.28, "Population": 81797255, "Renewable Energy (%)": 2.74, "Extreme Weather Events": 0}, {"Year": 2001, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.21, "CO2 Emissions (Tons/Capita)": 11.171, "Sea Level Rise (cm)": 2.83, "Population": 81933882, "Renewable Energy (%)": 2.8, "Extreme Weather Events": 0}, {"Year": 2002, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.75, "CO2 Emissions (Tons/Capita)": 10.952, "Sea Level Rise (cm)": 2.76, "Population": 82068328, "Renewable Energy (%)": 3.37, "Extreme Weather Events": 5}, {"Year": 2003, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.57, "CO2 Emissions (Tons/Capita)": 10.894, "Sea Level Rise (cm)": 3.15, "Population": 82111619, "Renewable Energy (%)": 3.48, "Extreme Weather Events": 3}, {"Year": 2004, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.14, "CO2 Emissions (Tons/Capita)": 10.678, "Sea Level Rise (cm)": 3.17, "Population": 82092706, "Renewable Energy (%)": 4.32, "Extreme Weather Events": 2}, {"Year": 2005, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.26, "CO2 Emissions (Tons/Capita)": 10.578, "Sea Level Rise (cm)": 3.46, "Population": 82046733, "Renewable Energy (%)": 4.99, "Extreme Weather Events": 4}, {"Year": 2006, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.82, "CO2 Emissions (Tons/Capita)": 10.85, "Sea Level Rise (cm)": 3.64, "Population": 81701971, "Renewable Energy (%)": 5.8, "Extreme Weather Events": 5}, {"Year": 2007, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.09, "CO2 Emissions (Tons/Capita)": 10.408, "Sea Level Rise (cm)": 3.55, "Population": 81298546, "Renewable Energy (%)": 7.37, "Extreme Weather Events": 3}, {"Year": 2008, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.76, "CO2 Emissions (Tons/Capita)": 10.561, "Sea Level Rise (cm)": 4.11, "Population": 81110780, "Renewable Energy (%)": 7.52, "Extreme Weather Events": 2}, {"Year": 2009, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.51, "CO2 Emissions (Tons/Capita)": 9.761, "Sea Level Rise (cm)": 4.49, "Population": 80935276, "Renewable Energy (%)": 8.15, "Extreme Weather Events": 4}, {"Year": 2010, "Country": "Germany", "Avg Temperature (\u00b0C)": 8.19, "CO2 Emissions (Tons/Capita)": 10.228, "Sea Level Rise (cm)": 4.74, "Population": 80830916, "Renewable Energy (%)": 8.47, "Extreme Weather Events": 4}, {"Year": 2011, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.02, "CO2 Emissions (Tons/Capita)": 9.95, "Sea Level Rise (cm)": 4.55, "Population": 80857877, "Renewable Energy (%)": 10.17, "Extreme Weather Events": 0}, {"Year": 2012, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.45, "CO2 Emissions (Tons/Capita)": 10.061, "Sea Level Rise (cm)": 5.42, "Population": 80916391, "Renewable Energy (%)": 11.46, "Extreme Weather Events": 2}, {"Year": 2013, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.07, "CO2 Emissions (Tons/Capita)": 10.263, "Sea Level Rise (cm)": 5.49, "Population": 81041581, "Renewable Energy (%)": 11.6, "Extreme Weather Events": 4}, {"Year": 2014, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.64, "CO2 Emissions (Tons/Capita)": 9.74, "Sea Level Rise (cm)": 5.95, "Population": 81376078, "Renewable Energy (%)": 12.84, "Extreme Weather Events": 2}, {"Year": 2015, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.32, "CO2 Emissions (Tons/Capita)": 9.757, "Sea Level Rise (cm)": 6.62, "Population": 82077546, "Renewable Energy (%)": 14.32, "Extreme Weather Events": 0}, {"Year": 2016, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.86, "CO2 Emissions (Tons/Capita)": 9.642, "Sea Level Rise (cm)": 7.16, "Population": 82760102, "Renewable Energy (%)": 14.1, "Extreme Weather Events": 1}, {"Year": 2017, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.91, "CO2 Emissions (Tons/Capita)": 9.441, "Sea Level Rise (cm)": 7.23, "Population": 83104010, "Renewable Energy (%)": 15.39, "Extreme Weather Events": 3}, {"Year": 2018, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.73, "CO2 Emissions (Tons/Capita)": 9.101, "Sea Level Rise (cm)": 7.54, "Population": 83368507, "Renewable Energy (%)": 16.26, "Extreme Weather Events": 2}, {"Year": 2019, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.54, "CO2 Emissions (Tons/Capita)": 8.481, "Sea Level Rise (cm)": 8.22, "Population": 83559184, "Renewable Energy (%)": 17.81, "Extreme Weather Events": 3}, {"Year": 2020, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.78, "CO2 Emissions (Tons/Capita)": 7.739, "Sea Level Rise (cm)": 8.32, "Population": 83628711, "Renewable Energy (%)": 20.02, "Extreme Weather Events": 1}, {"Year": 2021, "Country": "Germany", "Avg Temperature (\u00b0C)": 9.49, "CO2 Emissions (Tons/Capita)": 8.101, "Sea Level Rise (cm)": 8.91, "Population": 83697080, "Renewable Energy (%)": 18.08, "Extreme Weather Events": 3}, {"Year": 2022, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.83, "CO2 Emissions (Tons/Capita)": 7.942, "Sea Level Rise (cm)": 9.41, "Population": 84086227, "Renewable Energy (%)": 20.33, "Extreme Weather Events": 4}, {"Year": 2023, "Country": "Germany", "Avg Temperature (\u00b0C)": 10.5, "CO2 Emissions (Tons/Capita)": 7.023, "Sea Level Rise (cm)": 9.72, "Population": 84548233, "Renewable Energy (%)": 23.6, "Extreme Weather Events": 4}, {"Year": 2000, "Country": "India", "Avg Temperature (\u00b0C)": 24.8, "CO2 Emissions (Tons/Capita)": 0.933, "Sea Level Rise (cm)": 2.28, "Population": 1057922731, "Renewable Energy (%)": 6.04, "Extreme Weather Events": 20}, {"Year": 2001, "Country": "India", "Avg Temperature (\u00b0C)": 25.1, "CO2 Emissions (Tons/Capita)": 0.929, "Sea Level Rise (cm)": 2.83, "Population": 1077898579, "Renewable Energy (%)": 5.69, "Extreme Weather Events": 21}, {"Year": 2002, "Country": "India", "Avg Temperature (\u00b0C)": 25.3, "CO2 Emissions (Tons/Capita)": 0.941, "Sea Level Rise (cm)": 2.76, "Population": 1097600380, "Renewable Energy (%)": 5.22, "Extreme Weather Events": 18}, {"Year": 2003, "Country": "India", "Avg Temperature (\u00b0C)": 24.9, "CO2 Emissions (Tons/Capita)": 0.957, "Sea Level Rise (cm)": 3.15, "Population": 1116803000, "Renewable Energy (%)": 5.14, "Extreme Weather Events": 17}, {"Year": 2004, "Country": "India", "Avg Temperature (\u00b0C)": 25.0, "CO2 Emissions (Tons/Capita)": 0.999, "Sea Level Rise (cm)": 3.17, "Population": 1135991509, "Renewable Energy (%)": 6.89, "Extreme Weather Events": 7}, {"Year": 2005, "Country": "India", "Avg Temperature (\u00b0C)": 25.2, "CO2 Emissions (Tons/Capita)": 1.035, "Sea Level Rise (cm)": 3.46, "Population": 1154676321, "Renewable Energy (%)": 6.36, "Extreme Weather Events": 31}, {"Year": 2006, "Country": "India", "Avg Temperature (\u00b0C)": 25.3, "CO2 Emissions (Tons/Capita)": 1.103, "Sea Level Rise (cm)": 3.64, "Population": 1172878888, "Renewable Energy (%)": 7.13, "Extreme Weather Events": 20}, {"Year": 2007, "Country": "India", "Avg Temperature (\u00b0C)": 25.1, "CO2 Emissions (Tons/Capita)": 1.17, "Sea Level Rise (cm)": 3.55, "Population": 1190676028, "Renewable Energy (%)": 7.28, "Extreme Weather Events": 20}, {"Year": 2008, "Country": "India", "Avg Temperature (\u00b0C)": 25.0, "CO2 Emissions (Tons/Capita)": 1.234, "Sea Level Rise (cm)": 4.11, "Population": 1207930960, "Renewable Energy (%)": 6.71, "Extreme Weather Events": 11}, {"Year": 2009, "Country": "India", "Avg Temperature (\u00b0C)": 25.4, "CO2 Emissions (Tons/Capita)": 1.316, "Sea Level Rise (cm)": 4.49, "Population": 1225524764, "Renewable Energy (%)": 5.96, "Extreme Weather Events": 17}, {"Year": 2010, "Country": "India", "Avg Temperature (\u00b0C)": 25.5, "CO2 Emissions (Tons/Capita)": 1.35, "Sea Level Rise (cm)": 4.74, "Population": 1243481565, "Renewable Energy (%)": 6.06, "Extreme Weather Events": 18}, {"Year": 2011, "Country": "India", "Avg Temperature (\u00b0C)": 25.2, "CO2 Emissions (Tons/Capita)": 1.4, "Sea Level Rise (cm)": 4.55, "Population": 1261224956, "Renewable Energy (%)": 6.97, "Extreme Weather Events": 13}, {"Year": 2012, "Country": "India", "Avg Temperature (\u00b0C)": 25.4, "CO2 Emissions (Tons/Capita)": 1.507, "Sea Level Rise (cm)": 5.42, "Population": 1278674501, "Renewable Energy (%)": 6.21, "Extreme Weather Events": 10}, {"Year": 2013, "Country": "India", "Avg Temperature (\u00b0C)": 25.3, "CO2 Emissions (Tons/Capita)": 1.54, "Sea Level Rise (cm)": 5.49, "Population": 1295829507, "Renewable Energy (%)": 6.75, "Extreme Weather Events": 12}, {"Year": 2014, "Country": "India", "Avg Temperature (\u00b0C)": 25.4, "CO2 Emissions (Tons/Capita)": 1.637, "Sea Level Rise (cm)": 5.95, "Population": 1312277184, "Renewable Energy (%)": 6.83, "Extreme Weather Events": 16}, {"Year": 2015, "Country": "India", "Avg Temperature (\u00b0C)": 25.5, "CO2 Emissions (Tons/Capita)": 1.681, "Sea Level Rise (cm)": 6.62, "Population": 1328024494, "Renewable Energy (%)": 6.36, "Extreme Weather Events": 22}, {"Year": 2016, "Country": "India", "Avg Temperature (\u00b0C)": 25.8, "CO2 Emissions (Tons/Capita)": 1.75, "Sea Level Rise (cm)": 7.16, "Population": 1343944296, "Renewable Energy (%)": 6.37, "Extreme Weather Events": 16}, {"Year": 2017, "Country": "India", "Avg Temperature (\u00b0C)": 25.5, "CO2 Emissions (Tons/Capita)": 1.784, "Sea Level Rise (cm)": 7.23, "Population": 1359657398, "Renewable Energy (%)": 6.79, "Extreme Weather Events": 18}, {"Year": 2018, "Country": "India", "Avg Temperature (\u00b0C)": 25.6, "CO2 Emissions (Tons/Capita)": 1.888, "Sea Level Rise (cm)": 7.54, "Population": 1374659067, "Renewable Energy (%)": 7.31, "Extreme Weather Events": 23}, {"Year": 2019, "Country": "India", "Avg Temperature (\u00b0C)": 25.7, "CO2 Emissions (Tons/Capita)": 1.88, "Sea Level Rise (cm)": 8.22, "Population": 1389030307, "Renewable Energy (%)": 8.11, "Extreme Weather Events": 14}, {"Year": 2020, "Country": "India", "Avg Temperature (\u00b0C)": 25.6, "CO2 Emissions (Tons/Capita)": 1.727, "Sea Level Rise (cm)": 8.32, "Population": 1402617694, "Renewable Energy (%)": 8.89, "Extreme Weather Events": 11}, {"Year": 2021, "Country": "India", "Avg Temperature (\u00b0C)": 25.5, "CO2 Emissions (Tons/Capita)": 1.892, "Sea Level Rise (cm)": 8.91, "Population": 1414203896, "Renewable Energy (%)": 8.66, "Extreme Weather Events": 19}, {"Year": 2022, "Country": "India", "Avg Temperature (\u00b0C)": 25.7, "CO2 Emissions (Tons/Capita)": 1.986, "Sea Level Rise (cm)": 9.41, "Population": 1425423209, "Renewable Energy (%)": 9.42, "Extreme Weather Events": 7}, {"Year": 2023, "Country": "India", "Avg Temperature (\u00b0C)": 26.0, "CO2 Emissions (Tons/Capita)": 2.13, "Sea Level Rise (cm)": 9.72, "Population": 1438069597, "Renewable Energy (%)": 8.86, "Extreme Weather Events": 17}, {"Year": 2000, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.87, "CO2 Emissions (Tons/Capita)": 1.301, "Sea Level Rise (cm)": 2.28, "Population": 216077789, "Renewable Energy (%)": 3.7, "Extreme Weather Events": 15}, {"Year": 2001, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.93, "CO2 Emissions (Tons/Capita)": 1.446, "Sea Level Rise (cm)": 2.83, "Population": 219097905, "Renewable Energy (%)": 4.1, "Extreme Weather Events": 9}, {"Year": 2002, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.06, "CO2 Emissions (Tons/Capita)": 1.388, "Sea Level Rise (cm)": 2.76, "Population": 222088499, "Renewable Energy (%)": 3.65, "Extreme Weather Events": 15}, {"Year": 2003, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.92, "CO2 Emissions (Tons/Capita)": 1.506, "Sea Level Rise (cm)": 3.15, "Population": 225048005, "Renewable Energy (%)": 3.2, "Extreme Weather Events": 16}, {"Year": 2004, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.94, "CO2 Emissions (Tons/Capita)": 1.504, "Sea Level Rise (cm)": 3.17, "Population": 227926649, "Renewable Energy (%)": 3.42, "Extreme Weather Events": 18}, {"Year": 2005, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.95, "CO2 Emissions (Tons/Capita)": 1.505, "Sea Level Rise (cm)": 3.46, "Population": 230871648, "Renewable Energy (%)": 3.49, "Extreme Weather Events": 10}, {"Year": 2006, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.84, "CO2 Emissions (Tons/Capita)": 1.481, "Sea Level Rise (cm)": 3.64, "Population": 233951650, "Renewable Energy (%)": 3.23, "Extreme Weather Events": 18}, {"Year": 2007, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.86, "CO2 Emissions (Tons/Capita)": 1.635, "Sea Level Rise (cm)": 3.55, "Population": 237062338, "Renewable Energy (%)": 3.37, "Extreme Weather Events": 19}, {"Year": 2008, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.73, "CO2 Emissions (Tons/Capita)": 1.521, "Sea Level Rise (cm)": 4.11, "Population": 240157902, "Renewable Energy (%)": 3.62, "Extreme Weather Events": 16}, {"Year": 2009, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.0, "CO2 Emissions (Tons/Capita)": 1.639, "Sea Level Rise (cm)": 4.49, "Population": 243220024, "Renewable Energy (%)": 3.74, "Extreme Weather Events": 12}, {"Year": 2010, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.1, "CO2 Emissions (Tons/Capita)": 1.808, "Sea Level Rise (cm)": 4.74, "Population": 246305327, "Renewable Energy (%)": 4.42, "Extreme Weather Events": 12}, {"Year": 2011, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.9, "CO2 Emissions (Tons/Capita)": 2.006, "Sea Level Rise (cm)": 4.55, "Population": 249470029, "Renewable Energy (%)": 3.55, "Extreme Weather Events": 12}, {"Year": 2012, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.01, "CO2 Emissions (Tons/Capita)": 2.041, "Sea Level Rise (cm)": 5.42, "Population": 252698525, "Renewable Energy (%)": 3.58, "Extreme Weather Events": 13}, {"Year": 2013, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.07, "CO2 Emissions (Tons/Capita)": 1.929, "Sea Level Rise (cm)": 5.49, "Population": 255852464, "Renewable Energy (%)": 4.53, "Extreme Weather Events": 16}, {"Year": 2014, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.04, "CO2 Emissions (Tons/Capita)": 1.924, "Sea Level Rise (cm)": 5.95, "Population": 258877395, "Renewable Energy (%)": 4.71, "Extreme Weather Events": 10}, {"Year": 2015, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.13, "CO2 Emissions (Tons/Capita)": 2.105, "Sea Level Rise (cm)": 6.62, "Population": 261799249, "Renewable Energy (%)": 4.0, "Extreme Weather Events": 12}, {"Year": 2016, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.24, "CO2 Emissions (Tons/Capita)": 2.071, "Sea Level Rise (cm)": 7.16, "Population": 264627429, "Renewable Energy (%)": 5.81, "Extreme Weather Events": 15}, {"Year": 2017, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.05, "CO2 Emissions (Tons/Capita)": 2.136, "Sea Level Rise (cm)": 7.23, "Population": 267346654, "Renewable Energy (%)": 5.52, "Extreme Weather Events": 12}, {"Year": 2018, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.06, "CO2 Emissions (Tons/Capita)": 2.25, "Sea Level Rise (cm)": 7.54, "Population": 269951847, "Renewable Energy (%)": 8.03, "Extreme Weather Events": 15}, {"Year": 2019, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.21, "CO2 Emissions (Tons/Capita)": 2.441, "Sea Level Rise (cm)": 8.22, "Population": 272489381, "Renewable Energy (%)": 8.61, "Extreme Weather Events": 19}, {"Year": 2020, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.2, "CO2 Emissions (Tons/Capita)": 2.268, "Sea Level Rise (cm)": 8.32, "Population": 274814861, "Renewable Energy (%)": 10.64, "Extreme Weather Events": 29}, {"Year": 2021, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 26.01, "CO2 Emissions (Tons/Capita)": 2.287, "Sea Level Rise (cm)": 8.91, "Population": 276758056, "Renewable Energy (%)": 11.08, "Extreme Weather Events": 28}, {"Year": 2022, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.96, "CO2 Emissions (Tons/Capita)": 2.719, "Sea Level Rise (cm)": 9.41, "Population": 278830527, "Renewable Energy (%)": 10.21, "Extreme Weather Events": 20}, {"Year": 2023, "Country": "Indonesia", "Avg Temperature (\u00b0C)": 25.8, "CO2 Emissions (Tons/Capita)": 2.711, "Sea Level Rise (cm)": 9.72, "Population": 281190068, "Renewable Energy (%)": 10.7, "Extreme Weather Events": 15}, {"Year": 2000, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.75, "CO2 Emissions (Tons/Capita)": 9.921, "Sea Level Rise (cm)": 2.28, "Population": 127027794, "Renewable Energy (%)": 4.6, "Extreme Weather Events": 8}, {"Year": 2001, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.4, "CO2 Emissions (Tons/Capita)": 9.79, "Sea Level Rise (cm)": 2.83, "Population": 127260144, "Renewable Energy (%)": 4.51, "Extreme Weather Events": 6}, {"Year": 2002, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.75, "CO2 Emissions (Tons/Capita)": 10.005, "Sea Level Rise (cm)": 2.76, "Population": 127484599, "Renewable Energy (%)": 4.51, "Extreme Weather Events": 6}, {"Year": 2003, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.41, "CO2 Emissions (Tons/Capita)": 10.056, "Sea Level Rise (cm)": 3.15, "Population": 127671254, "Renewable Energy (%)": 5.1, "Extreme Weather Events": 6}, {"Year": 2004, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.31, "CO2 Emissions (Tons/Capita)": 10.008, "Sea Level Rise (cm)": 3.17, "Population": 127815769, "Renewable Energy (%)": 5.02, "Extreme Weather Events": 12}, {"Year": 2005, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.44, "CO2 Emissions (Tons/Capita)": 10.057, "Sea Level Rise (cm)": 3.46, "Population": 127913331, "Renewable Energy (%)": 4.52, "Extreme Weather Events": 6}, {"Year": 2006, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.66, "CO2 Emissions (Tons/Capita)": 9.871, "Sea Level Rise (cm)": 3.64, "Population": 127997247, "Renewable Energy (%)": 5.01, "Extreme Weather Events": 5}, {"Year": 2007, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.08, "CO2 Emissions (Tons/Capita)": 10.141, "Sea Level Rise (cm)": 3.55, "Population": 128087683, "Renewable Energy (%)": 4.5, "Extreme Weather Events": 8}, {"Year": 2008, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.78, "CO2 Emissions (Tons/Capita)": 9.587, "Sea Level Rise (cm)": 4.11, "Population": 128155992, "Renewable Energy (%)": 4.56, "Extreme Weather Events": 4}, {"Year": 2009, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.84, "CO2 Emissions (Tons/Capita)": 9.051, "Sea Level Rise (cm)": 4.49, "Population": 128192471, "Renewable Energy (%)": 4.76, "Extreme Weather Events": 6}, {"Year": 2010, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.14, "CO2 Emissions (Tons/Capita)": 9.448, "Sea Level Rise (cm)": 4.74, "Population": 128185273, "Renewable Energy (%)": 5.4, "Extreme Weather Events": 2}, {"Year": 2011, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.69, "CO2 Emissions (Tons/Capita)": 9.846, "Sea Level Rise (cm)": 4.55, "Population": 128096430, "Renewable Energy (%)": 5.45, "Extreme Weather Events": 7}, {"Year": 2012, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.48, "CO2 Emissions (Tons/Capita)": 10.178, "Sea Level Rise (cm)": 5.42, "Population": 127928283, "Renewable Energy (%)": 5.38, "Extreme Weather Events": 7}, {"Year": 2013, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.9, "CO2 Emissions (Tons/Capita)": 10.271, "Sea Level Rise (cm)": 5.49, "Population": 127723642, "Renewable Energy (%)": 5.83, "Extreme Weather Events": 10}, {"Year": 2014, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.66, "CO2 Emissions (Tons/Capita)": 9.886, "Sea Level Rise (cm)": 5.95, "Population": 127486601, "Renewable Energy (%)": 6.6, "Extreme Weather Events": 13}, {"Year": 2015, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.18, "CO2 Emissions (Tons/Capita)": 9.585, "Sea Level Rise (cm)": 6.62, "Population": 127275868, "Renewable Energy (%)": 7.69, "Extreme Weather Events": 10}, {"Year": 2016, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.24, "CO2 Emissions (Tons/Capita)": 9.436, "Sea Level Rise (cm)": 7.16, "Population": 127159950, "Renewable Energy (%)": 7.59, "Extreme Weather Events": 10}, {"Year": 2017, "Country": "Japan", "Avg Temperature (\u00b0C)": 11.66, "CO2 Emissions (Tons/Capita)": 9.321, "Sea Level Rise (cm)": 7.23, "Population": 127064686, "Renewable Energy (%)": 8.03, "Extreme Weather Events": 4}, {"Year": 2018, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.23, "CO2 Emissions (Tons/Capita)": 8.971, "Sea Level Rise (cm)": 7.54, "Population": 126913432, "Renewable Energy (%)": 8.65, "Extreme Weather Events": 7}, {"Year": 2019, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.4, "CO2 Emissions (Tons/Capita)": 8.698, "Sea Level Rise (cm)": 8.22, "Population": 126699421, "Renewable Energy (%)": 8.87, "Extreme Weather Events": 10}, {"Year": 2020, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.41, "CO2 Emissions (Tons/Capita)": 8.213, "Sea Level Rise (cm)": 8.32, "Population": 126304533, "Renewable Energy (%)": 10.46, "Extreme Weather Events": 4}, {"Year": 2021, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.45, "CO2 Emissions (Tons/Capita)": 8.422, "Sea Level Rise (cm)": 8.91, "Population": 125679342, "Renewable Energy (%)": 10.81, "Extreme Weather Events": 6}, {"Year": 2022, "Country": "Japan", "Avg Temperature (\u00b0C)": 12.42, "CO2 Emissions (Tons/Capita)": 8.237, "Sea Level Rise (cm)": 9.41, "Population": 124997585, "Renewable Energy (%)": 11.15, "Extreme Weather Events": 7}, {"Year": 2023, "Country": "Japan", "Avg Temperature (\u00b0C)": 14.3, "CO2 Emissions (Tons/Capita)": 7.935, "Sea Level Rise (cm)": 9.72, "Population": 124370947, "Renewable Energy (%)": 11.97, "Extreme Weather Events": 6}, {"Year": 2000, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.17, "CO2 Emissions (Tons/Capita)": 3.969, "Sea Level Rise (cm)": 2.28, "Population": 98625553, "Renewable Energy (%)": 6.66, "Extreme Weather Events": 7}, {"Year": 2001, "Country": "Mexico", "Avg Temperature (\u00b0C)": 20.99, "CO2 Emissions (Tons/Capita)": 4.071, "Sea Level Rise (cm)": 2.83, "Population": 100099101, "Renewable Energy (%)": 5.91, "Extreme Weather Events": 5}, {"Year": 2002, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.18, "CO2 Emissions (Tons/Capita)": 4.04, "Sea Level Rise (cm)": 2.76, "Population": 101548627, "Renewable Energy (%)": 5.12, "Extreme Weather Events": 8}, {"Year": 2003, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.26, "CO2 Emissions (Tons/Capita)": 4.234, "Sea Level Rise (cm)": 3.15, "Population": 102978517, "Renewable Energy (%)": 4.41, "Extreme Weather Events": 9}, {"Year": 2004, "Country": "Mexico", "Avg Temperature (\u00b0C)": 20.98, "CO2 Emissions (Tons/Capita)": 4.201, "Sea Level Rise (cm)": 3.17, "Population": 104394131, "Renewable Energy (%)": 4.99, "Extreme Weather Events": 3}, {"Year": 2005, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.28, "CO2 Emissions (Tons/Capita)": 4.38, "Sea Level Rise (cm)": 3.46, "Population": 105811504, "Renewable Energy (%)": 5.0, "Extreme Weather Events": 7}, {"Year": 2006, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.44, "CO2 Emissions (Tons/Capita)": 4.424, "Sea Level Rise (cm)": 3.64, "Population": 107253666, "Renewable Energy (%)": 5.18, "Extreme Weather Events": 7}, {"Year": 2007, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.09, "CO2 Emissions (Tons/Capita)": 4.354, "Sea Level Rise (cm)": 3.55, "Population": 108774356, "Renewable Energy (%)": 4.85, "Extreme Weather Events": 7}, {"Year": 2008, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.06, "CO2 Emissions (Tons/Capita)": 4.285, "Sea Level Rise (cm)": 4.11, "Population": 110374286, "Renewable Energy (%)": 6.04, "Extreme Weather Events": 3}, {"Year": 2009, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.55, "CO2 Emissions (Tons/Capita)": 4.11, "Sea Level Rise (cm)": 4.49, "Population": 111999720, "Renewable Energy (%)": 4.56, "Extreme Weather Events": 8}, {"Year": 2010, "Country": "Mexico", "Avg Temperature (\u00b0C)": 20.78, "CO2 Emissions (Tons/Capita)": 4.017, "Sea Level Rise (cm)": 4.74, "Population": 113623898, "Renewable Energy (%)": 5.95, "Extreme Weather Events": 9}, {"Year": 2011, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.59, "CO2 Emissions (Tons/Capita)": 4.194, "Sea Level Rise (cm)": 4.55, "Population": 115243503, "Renewable Energy (%)": 5.6, "Extreme Weather Events": 12}, {"Year": 2012, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.66, "CO2 Emissions (Tons/Capita)": 4.293, "Sea Level Rise (cm)": 5.42, "Population": 116818208, "Renewable Energy (%)": 5.19, "Extreme Weather Events": 3}, {"Year": 2013, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.16, "CO2 Emissions (Tons/Capita)": 4.186, "Sea Level Rise (cm)": 5.49, "Population": 118343572, "Renewable Energy (%)": 4.83, "Extreme Weather Events": 5}, {"Year": 2014, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.39, "CO2 Emissions (Tons/Capita)": 4.041, "Sea Level Rise (cm)": 5.95, "Population": 119784265, "Renewable Energy (%)": 6.43, "Extreme Weather Events": 8}, {"Year": 2015, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.54, "CO2 Emissions (Tons/Capita)": 3.96, "Sea Level Rise (cm)": 6.62, "Population": 121072310, "Renewable Energy (%)": 5.86, "Extreme Weather Events": 4}, {"Year": 2016, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.75, "CO2 Emissions (Tons/Capita)": 3.917, "Sea Level Rise (cm)": 7.16, "Population": 122251344, "Renewable Energy (%)": 5.73, "Extreme Weather Events": 7}, {"Year": 2017, "Country": "Mexico", "Avg Temperature (\u00b0C)": 22.03, "CO2 Emissions (Tons/Capita)": 3.763, "Sea Level Rise (cm)": 7.23, "Population": 123400052, "Renewable Energy (%)": 5.77, "Extreme Weather Events": 7}, {"Year": 2018, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.66, "CO2 Emissions (Tons/Capita)": 3.76, "Sea Level Rise (cm)": 7.54, "Population": 124573713, "Renewable Energy (%)": 6.34, "Extreme Weather Events": 4}, {"Year": 2019, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.88, "CO2 Emissions (Tons/Capita)": 3.723, "Sea Level Rise (cm)": 8.22, "Population": 125762978, "Renewable Energy (%)": 6.64, "Extreme Weather Events": 6}, {"Year": 2020, "Country": "Mexico", "Avg Temperature (\u00b0C)": 22.08, "CO2 Emissions (Tons/Capita)": 3.383, "Sea Level Rise (cm)": 8.32, "Population": 126799053, "Renewable Energy (%)": 8.67, "Extreme Weather Events": 8}, {"Year": 2021, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.85, "CO2 Emissions (Tons/Capita)": 3.501, "Sea Level Rise (cm)": 8.91, "Population": 127648151, "Renewable Energy (%)": 9.54, "Extreme Weather Events": 10}, {"Year": 2022, "Country": "Mexico", "Avg Temperature (\u00b0C)": 21.7, "CO2 Emissions (Tons/Capita)": 3.528, "Sea Level Rise (cm)": 9.41, "Population": 128613116, "Renewable Energy (%)": 9.24, "Extreme Weather Events": 7}, {"Year": 2023, "Country": "Mexico", "Avg Temperature (\u00b0C)": 19.3, "CO2 Emissions (Tons/Capita)": 3.532, "Sea Level Rise (cm)": 9.72, "Population": 129739761, "Renewable Energy (%)": 7.93, "Extreme Weather Events": 2}, {"Year": 2000, "Country": "Russia", "Avg Temperature (\u00b0C)": -4.38, "CO2 Emissions (Tons/Capita)": 10.091, "Sea Level Rise (cm)": 2.28, "Population": 146717784, "Renewable Energy (%)": 6.35, "Extreme Weather Events": 23}, {"Year": 2001, "Country": "Russia", "Avg Temperature (\u00b0C)": -4.29, "CO2 Emissions (Tons/Capita)": 10.389, "Sea Level Rise (cm)": 2.83, "Population": 146117290, "Renewable Energy (%)": 6.59, "Extreme Weather Events": 11}, {"Year": 2002, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.84, "CO2 Emissions (Tons/Capita)": 10.335, "Sea Level Rise (cm)": 2.76, "Population": 145939502, "Renewable Energy (%)": 6.13, "Extreme Weather Events": 11}, {"Year": 2003, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.64, "CO2 Emissions (Tons/Capita)": 10.556, "Sea Level Rise (cm)": 3.15, "Population": 145794230, "Renewable Energy (%)": 5.74, "Extreme Weather Events": 5}, {"Year": 2004, "Country": "Russia", "Avg Temperature (\u00b0C)": -4.29, "CO2 Emissions (Tons/Capita)": 10.644, "Sea Level Rise (cm)": 3.17, "Population": 145180091, "Renewable Energy (%)": 6.39, "Extreme Weather Events": 8}, {"Year": 2005, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.39, "CO2 Emissions (Tons/Capita)": 10.816, "Sea Level Rise (cm)": 3.46, "Population": 144597886, "Renewable Energy (%)": 6.23, "Extreme Weather Events": 8}, {"Year": 2006, "Country": "Russia", "Avg Temperature (\u00b0C)": -4.56, "CO2 Emissions (Tons/Capita)": 11.266, "Sea Level Rise (cm)": 3.64, "Population": 144102948, "Renewable Energy (%)": 5.96, "Extreme Weather Events": 5}, {"Year": 2007, "Country": "Russia", "Avg Temperature (\u00b0C)": -2.83, "CO2 Emissions (Tons/Capita)": 11.291, "Sea Level Rise (cm)": 3.55, "Population": 143859767, "Renewable Energy (%)": 6.03, "Extreme Weather Events": 3}, {"Year": 2008, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.24, "CO2 Emissions (Tons/Capita)": 11.492, "Sea Level Rise (cm)": 4.11, "Population": 143811837, "Renewable Energy (%)": 5.54, "Extreme Weather Events": 1}, {"Year": 2009, "Country": "Russia", "Avg Temperature (\u00b0C)": -4.46, "CO2 Emissions (Tons/Capita)": 10.741, "Sea Level Rise (cm)": 4.49, "Population": 143869128, "Renewable Energy (%)": 6.13, "Extreme Weather Events": 0}, {"Year": 2010, "Country": "Russia", "Avg Temperature (\u00b0C)": -4.36, "CO2 Emissions (Tons/Capita)": 11.346, "Sea Level Rise (cm)": 4.74, "Population": 143934468, "Renewable Energy (%)": 5.6, "Extreme Weather Events": 8}, {"Year": 2011, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.26, "CO2 Emissions (Tons/Capita)": 11.698, "Sea Level Rise (cm)": 4.55, "Population": 144043751, "Renewable Energy (%)": 5.27, "Extreme Weather Events": 3}, {"Year": 2012, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.89, "CO2 Emissions (Tons/Capita)": 11.782, "Sea Level Rise (cm)": 5.42, "Population": 144291025, "Renewable Energy (%)": 5.23, "Extreme Weather Events": 8}, {"Year": 2013, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.5, "CO2 Emissions (Tons/Capita)": 11.324, "Sea Level Rise (cm)": 5.49, "Population": 144604105, "Renewable Energy (%)": 5.82, "Extreme Weather Events": 3}, {"Year": 2014, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.56, "CO2 Emissions (Tons/Capita)": 11.298, "Sea Level Rise (cm)": 5.95, "Population": 144925639, "Renewable Energy (%)": 5.53, "Extreme Weather Events": 1}, {"Year": 2015, "Country": "Russia", "Avg Temperature (\u00b0C)": -2.88, "CO2 Emissions (Tons/Capita)": 11.254, "Sea Level Rise (cm)": 6.62, "Population": 145307612, "Renewable Energy (%)": 5.42, "Extreme Weather Events": 2}, {"Year": 2016, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.21, "CO2 Emissions (Tons/Capita)": 11.177, "Sea Level Rise (cm)": 7.16, "Population": 145778668, "Renewable Energy (%)": 5.81, "Extreme Weather Events": 3}, {"Year": 2017, "Country": "Russia", "Avg Temperature (\u00b0C)": -2.89, "CO2 Emissions (Tons/Capita)": 11.362, "Sea Level Rise (cm)": 7.23, "Population": 146186798, "Renewable Energy (%)": 5.77, "Extreme Weather Events": 2}, {"Year": 2018, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.41, "CO2 Emissions (Tons/Capita)": 11.677, "Sea Level Rise (cm)": 7.54, "Population": 146430146, "Renewable Energy (%)": 5.71, "Extreme Weather Events": 2}, {"Year": 2019, "Country": "Russia", "Avg Temperature (\u00b0C)": -2.85, "CO2 Emissions (Tons/Capita)": 11.632, "Sea Level Rise (cm)": 8.22, "Population": 146533063, "Renewable Energy (%)": 5.86, "Extreme Weather Events": 5}, {"Year": 2020, "Country": "Russia", "Avg Temperature (\u00b0C)": -1.74, "CO2 Emissions (Tons/Capita)": 11.149, "Sea Level Rise (cm)": 8.32, "Population": 146371295, "Renewable Energy (%)": 6.68, "Extreme Weather Events": 0}, {"Year": 2021, "Country": "Russia", "Avg Temperature (\u00b0C)": -3.65, "CO2 Emissions (Tons/Capita)": 11.482, "Sea Level Rise (cm)": 8.91, "Population": 145836172, "Renewable Energy (%)": 6.59, "Extreme Weather Events": 5}, {"Year": 2022, "Country": "Russia", "Avg Temperature (\u00b0C)": -2.87, "CO2 Emissions (Tons/Capita)": 11.509, "Sea Level Rise (cm)": 9.41, "Population": 145579889, "Renewable Energy (%)": 5.92, "Extreme Weather Events": 3}, {"Year": 2023, "Country": "Russia", "Avg Temperature (\u00b0C)": -5.1, "CO2 Emissions (Tons/Capita)": 11.916, "Sea Level Rise (cm)": 9.72, "Population": 145440502, "Renewable Energy (%)": 5.91, "Extreme Weather Events": 4}, {"Year": 2000, "Country": "South Africa", "Avg Temperature (\u00b0C)": 17.55, "CO2 Emissions (Tons/Capita)": 8.022, "Sea Level Rise (cm)": 2.28, "Population": 47159715, "Renewable Energy (%)": 0.39, "Extreme Weather Events": 5}, {"Year": 2001, "Country": "South Africa", "Avg Temperature (\u00b0C)": 17.81, "CO2 Emissions (Tons/Capita)": 7.812, "Sea Level Rise (cm)": 2.83, "Population": 47566805, "Renewable Energy (%)": 0.51, "Extreme Weather Events": 6}, {"Year": 2002, "Country": "South Africa", "Avg Temperature (\u00b0C)": 17.85, "CO2 Emissions (Tons/Capita)": 7.424, "Sea Level Rise (cm)": 2.76, "Population": 48019414, "Renewable Energy (%)": 0.66, "Extreme Weather Events": 9}, {"Year": 2003, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.21, "CO2 Emissions (Tons/Capita)": 8.338, "Sea Level Rise (cm)": 3.15, "Population": 48500351, "Renewable Energy (%)": 0.33, "Extreme Weather Events": 2}, {"Year": 2004, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.49, "CO2 Emissions (Tons/Capita)": 9.171, "Sea Level Rise (cm)": 3.17, "Population": 48991420, "Renewable Energy (%)": 0.33, "Extreme Weather Events": 3}, {"Year": 2005, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.49, "CO2 Emissions (Tons/Capita)": 8.41, "Sea Level Rise (cm)": 3.46, "Population": 49490041, "Renewable Energy (%)": 0.38, "Extreme Weather Events": 1}, {"Year": 2006, "Country": "South Africa", "Avg Temperature (\u00b0C)": 17.97, "CO2 Emissions (Tons/Capita)": 8.935, "Sea Level Rise (cm)": 3.64, "Population": 49998271, "Renewable Energy (%)": 0.69, "Extreme Weather Events": 2}, {"Year": 2007, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.29, "CO2 Emissions (Tons/Capita)": 9.203, "Sea Level Rise (cm)": 3.55, "Population": 50528575, "Renewable Energy (%)": 0.72, "Extreme Weather Events": 3}, {"Year": 2008, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.41, "CO2 Emissions (Tons/Capita)": 9.678, "Sea Level Rise (cm)": 4.11, "Population": 51114595, "Renewable Energy (%)": 0.37, "Extreme Weather Events": 4}, {"Year": 2009, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.33, "CO2 Emissions (Tons/Capita)": 9.173, "Sea Level Rise (cm)": 4.49, "Population": 51728518, "Renewable Energy (%)": 0.39, "Extreme Weather Events": 3}, {"Year": 2010, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.58, "CO2 Emissions (Tons/Capita)": 8.928, "Sea Level Rise (cm)": 4.74, "Population": 52344047, "Renewable Energy (%)": 0.31, "Extreme Weather Events": 1}, {"Year": 2011, "Country": "South Africa", "Avg Temperature (\u00b0C)": 17.89, "CO2 Emissions (Tons/Capita)": 8.949, "Sea Level Rise (cm)": 4.55, "Population": 52995212, "Renewable Energy (%)": 0.69, "Extreme Weather Events": 3}, {"Year": 2012, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.13, "CO2 Emissions (Tons/Capita)": 8.58, "Sea Level Rise (cm)": 5.42, "Population": 53782570, "Renewable Energy (%)": 0.36, "Extreme Weather Events": 2}, {"Year": 2013, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.2, "CO2 Emissions (Tons/Capita)": 8.343, "Sea Level Rise (cm)": 5.49, "Population": 54678789, "Renewable Energy (%)": 0.4, "Extreme Weather Events": 1}, {"Year": 2014, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.41, "CO2 Emissions (Tons/Capita)": 8.663, "Sea Level Rise (cm)": 5.95, "Population": 55594840, "Renewable Energy (%)": 0.81, "Extreme Weather Events": 2}, {"Year": 2015, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.87, "CO2 Emissions (Tons/Capita)": 8.065, "Sea Level Rise (cm)": 6.62, "Population": 56723536, "Renewable Energy (%)": 1.29, "Extreme Weather Events": 1}, {"Year": 2016, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.98, "CO2 Emissions (Tons/Capita)": 7.982, "Sea Level Rise (cm)": 7.16, "Population": 57259550, "Renewable Energy (%)": 1.48, "Extreme Weather Events": 3}, {"Year": 2017, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.51, "CO2 Emissions (Tons/Capita)": 7.634, "Sea Level Rise (cm)": 7.23, "Population": 57635158, "Renewable Energy (%)": 2.16, "Extreme Weather Events": 5}, {"Year": 2018, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.65, "CO2 Emissions (Tons/Capita)": 7.742, "Sea Level Rise (cm)": 7.54, "Population": 58613001, "Renewable Energy (%)": 2.29, "Extreme Weather Events": 0}, {"Year": 2019, "Country": "South Africa", "Avg Temperature (\u00b0C)": 19.27, "CO2 Emissions (Tons/Capita)": 7.9, "Sea Level Rise (cm)": 8.22, "Population": 59587880, "Renewable Energy (%)": 2.24, "Extreme Weather Events": 6}, {"Year": 2020, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.47, "CO2 Emissions (Tons/Capita)": 7.188, "Sea Level Rise (cm)": 8.32, "Population": 60562374, "Renewable Energy (%)": 2.58, "Extreme Weather Events": 2}, {"Year": 2021, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.06, "CO2 Emissions (Tons/Capita)": 7.145, "Sea Level Rise (cm)": 8.91, "Population": 61502602, "Renewable Energy (%)": 3.25, "Extreme Weather Events": 4}, {"Year": 2022, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.42, "CO2 Emissions (Tons/Capita)": 6.874, "Sea Level Rise (cm)": 9.41, "Population": 62378417, "Renewable Energy (%)": 3.65, "Extreme Weather Events": 8}, {"Year": 2023, "Country": "South Africa", "Avg Temperature (\u00b0C)": 18.2, "CO2 Emissions (Tons/Capita)": 6.907, "Sea Level Rise (cm)": 9.72, "Population": 63212386, "Renewable Energy (%)": 3.76, "Extreme Weather Events": 6}, {"Year": 2000, "Country": "UK", "Avg Temperature (\u00b0C)": 9.16, "CO2 Emissions (Tons/Capita)": 9.635, "Sea Level Rise (cm)": 2.28, "Population": 59057333, "Renewable Energy (%)": 1.09, "Extreme Weather Events": 5}, {"Year": 2001, "Country": "UK", "Avg Temperature (\u00b0C)": 8.96, "CO2 Emissions (Tons/Capita)": 9.749, "Sea Level Rise (cm)": 2.83, "Population": 59288095, "Renewable Energy (%)": 1.04, "Extreme Weather Events": 3}, {"Year": 2002, "Country": "UK", "Avg Temperature (\u00b0C)": 9.53, "CO2 Emissions (Tons/Capita)": 9.41, "Sea Level Rise (cm)": 2.76, "Population": 59540764, "Renewable Energy (%)": 1.24, "Extreme Weather Events": 5}, {"Year": 2003, "Country": "UK", "Avg Temperature (\u00b0C)": 9.55, "CO2 Emissions (Tons/Capita)": 9.556, "Sea Level Rise (cm)": 3.15, "Population": 59820385, "Renewable Energy (%)": 1.19, "Extreme Weather Events": 1}, {"Year": 2004, "Country": "UK", "Avg Temperature (\u00b0C)": 9.46, "CO2 Emissions (Tons/Capita)": 9.53, "Sea Level Rise (cm)": 3.17, "Population": 60169964, "Renewable Energy (%)": 1.55, "Extreme Weather Events": 1}, {"Year": 2005, "Country": "UK", "Avg Temperature (\u00b0C)": 9.47, "CO2 Emissions (Tons/Capita)": 9.412, "Sea Level Rise (cm)": 3.46, "Population": 60596107, "Renewable Energy (%)": 1.86, "Extreme Weather Events": 5}, {"Year": 2006, "Country": "UK", "Avg Temperature (\u00b0C)": 9.7, "CO2 Emissions (Tons/Capita)": 9.301, "Sea Level Rise (cm)": 3.64, "Population": 61051093, "Renewable Energy (%)": 2.05, "Extreme Weather Events": 0}, {"Year": 2007, "Country": "UK", "Avg Temperature (\u00b0C)": 9.65, "CO2 Emissions (Tons/Capita)": 9.093, "Sea Level Rise (cm)": 3.55, "Population": 61535859, "Renewable Energy (%)": 2.34, "Extreme Weather Events": 5}, {"Year": 2008, "Country": "UK", "Avg Temperature (\u00b0C)": 9.17, "CO2 Emissions (Tons/Capita)": 8.785, "Sea Level Rise (cm)": 4.11, "Population": 62027303, "Renewable Energy (%)": 2.81, "Extreme Weather Events": 2}, {"Year": 2009, "Country": "UK", "Avg Temperature (\u00b0C)": 9.27, "CO2 Emissions (Tons/Capita)": 7.905, "Sea Level Rise (cm)": 4.49, "Population": 62506222, "Renewable Energy (%)": 2.99, "Extreme Weather Events": 3}, {"Year": 2010, "Country": "UK", "Avg Temperature (\u00b0C)": 8.17, "CO2 Emissions (Tons/Capita)": 8.125, "Sea Level Rise (cm)": 4.74, "Population": 63006482, "Renewable Energy (%)": 3.04, "Extreme Weather Events": 3}, {"Year": 2011, "Country": "UK", "Avg Temperature (\u00b0C)": 9.55, "CO2 Emissions (Tons/Capita)": 7.396, "Sea Level Rise (cm)": 4.55, "Population": 63509285, "Renewable Energy (%)": 4.27, "Extreme Weather Events": 1}, {"Year": 2012, "Country": "UK", "Avg Temperature (\u00b0C)": 8.9, "CO2 Emissions (Tons/Capita)": 7.622, "Sea Level Rise (cm)": 5.42, "Population": 63960488, "Renewable Energy (%)": 4.87, "Extreme Weather Events": 4}, {"Year": 2013, "Country": "UK", "Avg Temperature (\u00b0C)": 8.87, "CO2 Emissions (Tons/Capita)": 7.418, "Sea Level Rise (cm)": 5.49, "Population": 64389386, "Renewable Energy (%)": 6.66, "Extreme Weather Events": 5}, {"Year": 2014, "Country": "UK", "Avg Temperature (\u00b0C)": 9.93, "CO2 Emissions (Tons/Capita)": 6.765, "Sea Level Rise (cm)": 5.95, "Population": 64865914, "Renewable Energy (%)": 8.51, "Extreme Weather Events": 2}, {"Year": 2015, "Country": "UK", "Avg Temperature (\u00b0C)": 9.18, "CO2 Emissions (Tons/Capita)": 6.461, "Sea Level Rise (cm)": 6.62, "Population": 65382107, "Renewable Energy (%)": 10.56, "Extreme Weather Events": 2}, {"Year": 2016, "Country": "UK", "Avg Temperature (\u00b0C)": 9.35, "CO2 Emissions (Tons/Capita)": 6.062, "Sea Level Rise (cm)": 7.16, "Population": 65893359, "Renewable Energy (%)": 10.66, "Extreme Weather Events": 1}, {"Year": 2017, "Country": "UK", "Avg Temperature (\u00b0C)": 9.62, "CO2 Emissions (Tons/Capita)": 5.838, "Sea Level Rise (cm)": 7.23, "Population": 66354473, "Renewable Energy (%)": 12.44, "Extreme Weather Events": 2}, {"Year": 2018, "Country": "UK", "Avg Temperature (\u00b0C)": 9.49, "CO2 Emissions (Tons/Capita)": 5.689, "Sea Level Rise (cm)": 7.54, "Population": 66752473, "Renewable Energy (%)": 13.98, "Extreme Weather Events": 3}, {"Year": 2019, "Country": "UK", "Avg Temperature (\u00b0C)": 9.55, "CO2 Emissions (Tons/Capita)": 5.435, "Sea Level Rise (cm)": 8.22, "Population": 67110958, "Renewable Energy (%)": 15.68, "Extreme Weather Events": 3}, {"Year": 2020, "Country": "UK", "Avg Temperature (\u00b0C)": 9.68, "CO2 Emissions (Tons/Capita)": 4.844, "Sea Level Rise (cm)": 8.32, "Population": 67351860, "Renewable Energy (%)": 19.07, "Extreme Weather Events": 4}, {"Year": 2021, "Country": "UK", "Avg Temperature (\u00b0C)": 9.39, "CO2 Emissions (Tons/Capita)": 5.059, "Sea Level Rise (cm)": 8.91, "Population": 67668788, "Renewable Energy (%)": 17.48, "Extreme Weather Events": 1}, {"Year": 2022, "Country": "UK", "Avg Temperature (\u00b0C)": 10.11, "CO2 Emissions (Tons/Capita)": 4.563, "Sea Level Rise (cm)": 9.41, "Population": 68179315, "Renewable Energy (%)": 19.07, "Extreme Weather Events": 5}, {"Year": 2023, "Country": "UK", "Avg Temperature (\u00b0C)": 9.9, "CO2 Emissions (Tons/Capita)": 4.482, "Sea Level Rise (cm)": 9.72, "Population": 68682965, "Renewable Energy (%)": 19.98, "Extreme Weather Events": 2}, {"Year": 2000, "Country": "USA", "Avg Temperature (\u00b0C)": 9.21, "CO2 Emissions (Tons/Capita)": 21.398, "Sea Level Rise (cm)": 2.28, "Population": 281484126, "Renewable Energy (%)": 3.86, "Extreme Weather Events": 31}, {"Year": 2001, "Country": "USA", "Avg Temperature (\u00b0C)": 9.43, "CO2 Emissions (Tons/Capita)": 20.767, "Sea Level Rise (cm)": 2.83, "Population": 284279634, "Renewable Energy (%)": 3.29, "Extreme Weather Events": 27}, {"Year": 2002, "Country": "USA", "Avg Temperature (\u00b0C)": 9.45, "CO2 Emissions (Tons/Capita)": 20.718, "Sea Level Rise (cm)": 2.76, "Population": 287084335, "Renewable Energy (%)": 3.85, "Extreme Weather Events": 31}, {"Year": 2003, "Country": "USA", "Avg Temperature (\u00b0C)": 9.44, "CO2 Emissions (Tons/Capita)": 20.718, "Sea Level Rise (cm)": 3.15, "Population": 289908091, "Renewable Energy (%)": 4.01, "Extreme Weather Events": 23}, {"Year": 2004, "Country": "USA", "Avg Temperature (\u00b0C)": 9.39, "CO2 Emissions (Tons/Capita)": 20.874, "Sea Level Rise (cm)": 3.17, "Population": 292786248, "Renewable Energy (%)": 3.94, "Extreme Weather Events": 20}, {"Year": 2005, "Country": "USA", "Avg Temperature (\u00b0C)": 9.67, "CO2 Emissions (Tons/Capita)": 20.719, "Sea Level Rise (cm)": 3.46, "Population": 295716666, "Renewable Energy (%)": 4.06, "Extreme Weather Events": 16}, {"Year": 2006, "Country": "USA", "Avg Temperature (\u00b0C)": 9.82, "CO2 Emissions (Tons/Capita)": 20.237, "Sea Level Rise (cm)": 3.64, "Population": 298730208, "Renewable Energy (%)": 4.5, "Extreme Weather Events": 30}, {"Year": 2007, "Country": "USA", "Avg Temperature (\u00b0C)": 9.64, "CO2 Emissions (Tons/Capita)": 20.28, "Sea Level Rise (cm)": 3.55, "Population": 301844223, "Renewable Energy (%)": 4.22, "Extreme Weather Events": 23}, {"Year": 2008, "Country": "USA", "Avg Temperature (\u00b0C)": 8.79, "CO2 Emissions (Tons/Capita)": 19.409, "Sea Level Rise (cm)": 4.11, "Population": 304970325, "Renewable Energy (%)": 4.83, "Extreme Weather Events": 22}, {"Year": 2009, "Country": "USA", "Avg Temperature (\u00b0C)": 8.94, "CO2 Emissions (Tons/Capita)": 17.811, "Sea Level Rise (cm)": 4.49, "Population": 308023452, "Renewable Energy (%)": 5.6, "Extreme Weather Events": 17}, {"Year": 2010, "Country": "USA", "Avg Temperature (\u00b0C)": 9.35, "CO2 Emissions (Tons/Capita)": 18.225, "Sea Level Rise (cm)": 4.74, "Population": 311062785, "Renewable Energy (%)": 5.64, "Extreme Weather Events": 15}, {"Year": 2011, "Country": "USA", "Avg Temperature (\u00b0C)": 9.38, "CO2 Emissions (Tons/Capita)": 17.634, "Sea Level Rise (cm)": 4.55, "Population": 314105075, "Renewable Energy (%)": 6.65, "Extreme Weather Events": 22}, {"Year": 2012, "Country": "USA", "Avg Temperature (\u00b0C)": 10.07, "CO2 Emissions (Tons/Capita)": 16.812, "Sea Level Rise (cm)": 5.42, "Population": 317115349, "Renewable Energy (%)": 6.65, "Extreme Weather Events": 25}, {"Year": 2013, "Country": "USA", "Avg Temperature (\u00b0C)": 9.09, "CO2 Emissions (Tons/Capita)": 17.099, "Sea Level Rise (cm)": 5.49, "Population": 320110752, "Renewable Energy (%)": 6.89, "Extreme Weather Events": 28}, {"Year": 2014, "Country": "USA", "Avg Temperature (\u00b0C)": 9.43, "CO2 Emissions (Tons/Capita)": 17.119, "Sea Level Rise (cm)": 5.95, "Population": 323115377, "Renewable Energy (%)": 7.01, "Extreme Weather Events": 20}, {"Year": 2015, "Country": "USA", "Avg Temperature (\u00b0C)": 10.22, "CO2 Emissions (Tons/Capita)": 16.461, "Sea Level Rise (cm)": 6.62, "Population": 326126496, "Renewable Energy (%)": 7.22, "Extreme Weather Events": 29}, {"Year": 2016, "Country": "USA", "Avg Temperature (\u00b0C)": 10.64, "CO2 Emissions (Tons/Capita)": 15.935, "Sea Level Rise (cm)": 7.16, "Population": 329179423, "Renewable Energy (%)": 7.99, "Extreme Weather Events": 27}, {"Year": 2017, "Country": "USA", "Avg Temperature (\u00b0C)": 10.22, "CO2 Emissions (Tons/Capita)": 15.639, "Sea Level Rise (cm)": 7.23, "Population": 332204657, "Renewable Energy (%)": 8.75, "Extreme Weather Events": 24}, {"Year": 2018, "Country": "USA", "Avg Temperature (\u00b0C)": 9.89, "CO2 Emissions (Tons/Capita)": 16.001, "Sea Level Rise (cm)": 7.54, "Population": 335056492, "Renewable Energy (%)": 8.64, "Extreme Weather Events": 20}, {"Year": 2019, "Country": "USA", "Avg Temperature (\u00b0C)": 9.73, "CO2 Emissions (Tons/Capita)": 15.5, "Sea Level Rise (cm)": 8.22, "Population": 337790069, "Renewable Energy (%)": 8.97, "Extreme Weather Events": 21}, {"Year": 2020, "Country": "USA", "Avg Temperature (\u00b0C)": 10.02, "CO2 Emissions (Tons/Capita)": 13.817, "Sea Level Rise (cm)": 8.32, "Population": 339436156, "Renewable Energy (%)": 10.12, "Extreme Weather Events": 23}, {"Year": 2021, "Country": "USA", "Avg Temperature (\u00b0C)": 10.01, "CO2 Emissions (Tons/Capita)": 14.758, "Sea Level Rise (cm)": 8.91, "Population": 340161438, "Renewable Energy (%)": 10.12, "Extreme Weather Events": 43}, {"Year": 2022, "Country": "USA", "Avg Temperature (\u00b0C)": 9.73, "CO2 Emissions (Tons/Capita)": 14.802, "Sea Level Rise (cm)": 9.41, "Population": 341534041, "Renewable Energy (%)": 10.87, "Extreme Weather Events": 27}, {"Year": 2023, "Country": "USA", "Avg Temperature (\u00b0C)": 10.2, "CO2 Emissions (Tons/Capita)": 14.319, "Sea Level Rise (cm)": 9.72, "Population": 343477330, "Renewable Energy (%)": 11.21, "Extreme Weather Events": 25}];
+
+const countries = [...new Set(data.map(d => d.Country))].sort();
+const years = [...new Set(data.map(d => d.Year))].sort((a,b)=>a-b);
+const metrics = ['Avg Temperature (°C)','CO2 Emissions (Tons/Capita)','Sea Level Rise (cm)','Renewable Energy (%)','Extreme Weather Events'];
+const palette = ['#58a6ff','#f78166','#3fb950','#d2a8ff','#e3b341','#79c0ff','#ffa657','#56d364','#bc8cff','#ffd700','#4fc3f7','#ff8a65','#a5d6a7','#ce93d8','#fff176'];
+const colorMap = {}; countries.forEach((c,i) => { colorMap[c] = palette[i % palette.length]; });
+
+const tooltip = document.getElementById('tooltip');
+function showTooltip(html, e){ tooltip.innerHTML = html; tooltip.style.display='block'; tooltip.style.left=(e.pageX+14)+'px'; tooltip.style.top=(e.pageY-14)+'px'; }
+function hideTooltip(){ tooltip.style.display='none'; }
+function meanFor(country, year, metric){ const r=data.filter(d=>d.Country===country&&d.Year===year); return r.length?d3.mean(r,d=>d[metric]):null; }
+function seriesFor(country, metric){ const by=d3.rollup(data.filter(d=>d.Country===country),v=>d3.mean(v,d=>d[metric]),d=>d.Year); return years.map(y=>({year:y,value:by.get(y)})).filter(d=>d.value!=null); }
+function slope(series){ const xs=series.map(d=>d.year),ys=series.map(d=>d.value); const mx=d3.mean(xs),my=d3.mean(ys); const num=d3.sum(xs.map((x,i)=>(x-mx)*(ys[i]-my))); const den=d3.sum(xs.map(x=>(x-mx)**2)); return den?num/den:0; }
+function globalMeanByYear(metric){ return years.map(y=>({year:y, value:d3.mean(data.filter(d=>d.Year===y),d=>d[metric])})); }
+
+function makeScrolly(stepSelector, onStep){
+  const steps = Array.from(document.querySelectorAll(stepSelector));
+  const obs = new IntersectionObserver((entries)=>{
+    entries.forEach(en=>{ if(en.isIntersecting){ steps.forEach(s=>s.classList.remove('active')); en.target.classList.add('active'); try{ onStep(+en.target.dataset.step); }catch(e){ console.error('[step]',e);} } });
+  }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+  steps.forEach(s=>obs.observe(s));
+  if(steps[0]){ steps[0].classList.add('active'); try{ onStep(0); }catch(e){} }
+}
+
+// ─── HERO CANVAS ─────────────────────────────────────────────────────────────
+(function() { try {
+  const cv=document.getElementById('hero-canvas'); const ctx=cv.getContext('2d'); let W,H,parts;
+  const cols=['#58a6ff','#f78166','#3fb950','#e3b341','#d2a8ff'];
+  function resize(){ W=cv.width=cv.offsetWidth; H=cv.height=cv.offsetHeight; parts=d3.range(70).map(()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2.4+0.6,s:Math.random()*0.5+0.15,c:cols[Math.floor(Math.random()*cols.length)],a:Math.random()*0.5+0.2})); }
+  function tick(){ ctx.clearRect(0,0,W,H); parts.forEach(p=>{ p.y-=p.s; if(p.y<-5){p.y=H+5;p.x=Math.random()*W;} ctx.globalAlpha=p.a; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }); ctx.globalAlpha=1; requestAnimationFrame(tick); }
+  resize(); window.addEventListener('resize',resize); tick();
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── DRAW YOUR PREDICTION ─────────────────────────────────────────────────────
+(function() { try {
+  const el = document.getElementById('draw-chart');
+  const W = Math.min(el.parentElement.clientWidth, 760), H = 360;
+  const margin = { top: 20, right: 20, bottom: 42, left: 56 };
+  const w = W - margin.left - margin.right, h = H - margin.top - margin.bottom;
+  const svg = d3.select(el).attr('width', W).attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // compute per-country 2000-baseline anomalies, then average across countries
+  const baselines = {};
+  countries.forEach(c => {
+    const base = data.find(d => d.Country === c && d.Year === 2000);
+    baselines[c] = base ? base['Avg Temperature (°C)'] : null;
+  });
+  function globalAnomalyByYear() {
+    return years.map(y => ({
+      year: y,
+      value: d3.mean(
+        countries.map(c => {
+          const row = data.find(d => d.Country === c && d.Year === y);
+          return (row && baselines[c] != null) ? row['Avg Temperature (°C)'] - baselines[c] : null;
+        }).filter(v => v != null)
+      )
+    }));
+  }
+  const actual = globalAnomalyByYear();
+  const yMin = -1.5, yMax = 2.5;
+
+  const x = d3.scaleLinear().domain([2000, 2023]).range([0, w]);
+  const y = d3.scaleLinear().domain([yMin, yMax]).range([h, 0]);
+
+  g.append('g').attr('class', 'grid').call(d3.axisLeft(y).tickSize(-w).tickFormat(''));
+  g.append('g').attr('class', 'axis').attr('transform', `translate(0,${h})`).call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(12));
+  g.append('g').attr('class', 'axis').call(d3.axisLeft(y).ticks(8).tickFormat(d => (d >= 0 ? '+' : '') + d.toFixed(1) + '°C'));
+
+  // zero baseline reference line
+  g.append('line')
+    .attr('x1', 0).attr('x2', w)
+    .attr('y1', y(0)).attr('y2', y(0))
+    .attr('stroke', '#8b949e').attr('stroke-dasharray', '4,3').attr('opacity', 0.5);
+  g.append('text')
+    .attr('x', w - 4).attr('y', y(0) - 5)
+    .attr('text-anchor', 'end').attr('fill', '#8b949e').attr('font-size', 10)
+    .text('2000 baseline');
+
+  g.append('text').attr('fill', '#8b949e').attr('font-size', 11)
+    .attr('x', w / 2).attr('y', h + 36).attr('text-anchor', 'middle')
+    .text('Year');
+  g.append('text').attr('fill', '#8b949e').attr('font-size', 11)
+    .attr('transform', 'rotate(-90)').attr('x', -h / 2).attr('y', -46)
+    .attr('text-anchor', 'middle').text('Temperature anomaly vs 2000 (°C)');
+
+  const predLine = g.append('path').attr('fill', 'none').attr('stroke', 'var(--accent2)')
+    .attr('stroke-width', 3).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  const actualLayer = g.append('g');
+  const lineGen = d3.line().x(d => x(d.year)).y(d => y(d.value)).curve(d3.curveMonotoneX);
+
+  g.append('text').attr('id', 'draw-hint').attr('x', w / 2).attr('y', h / 2)
+    .attr('text-anchor', 'middle').attr('fill', '#8b949e').attr('font-size', 13).attr('opacity', 0.5)
+    .text('✎ drag across to draw your guess');
+
+  const pred = {}; let drawing = false, revealed = false;
+
+  function pt(ev) {
+    const r = el.getBoundingClientRect();
+    const sx = W / r.width, sy = H / r.height;
+    return { px: (ev.clientX - r.left) * sx - margin.left, py: (ev.clientY - r.top) * sy - margin.top };
+  }
+  function record(ev) {
+    const { px, py } = pt(ev);
+    const yr = Math.round(Math.max(2000, Math.min(2023, x.invert(px))));
+    const t = Math.max(yMin, Math.min(yMax, y.invert(py)));
+    pred[yr] = t;
+    redraw();
+    g.select('#draw-hint').attr('opacity', 0);
+  }
+  function redraw() {
+    const pts = Object.keys(pred).map(k => ({ year: +k, value: pred[k] })).sort((a, b) => a.year - b.year);
+    predLine.attr('d', lineGen(pts));
+  }
+  function down(ev) { if (revealed) return; drawing = true; el.setPointerCapture(ev.pointerId); record(ev); ev.preventDefault(); }
+  function move(ev) { if (drawing) record(ev); }
+  function up() { drawing = false; }
+  el.addEventListener('pointerdown', down);
+  el.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+
+  const status = document.getElementById('draw-status');
+
+  document.getElementById('draw-reveal').addEventListener('click', () => {
+    if (revealed) return;
+    const drawn = Object.keys(pred).map(Number).sort((a, b) => a - b);
+    if (drawn.length < 3) {
+      status.innerHTML = '<strong>Draw a bit more first</strong> — drag across the chart so your line spans the years.';
+      return;
+    }
+    revealed = true;
+
+    function predAt(yr) {
+      if (pred[yr] != null) return pred[yr];
+      let a = null, b = null;
+      for (const k of drawn) { if (k <= yr) a = k; if (k >= yr) { b = k; break; } }
+      if (a == null) return pred[b];
+      if (b == null) return pred[a];
+      if (a === b) return pred[a];
+      const f = (yr - a) / (b - a);
+      return pred[a] + (pred[b] - pred[a]) * f;
+    }
+
+    const ap = actualLayer.append('path').datum(actual)
+      .attr('fill', 'none').attr('stroke', 'var(--accent)').attr('stroke-width', 3).attr('d', lineGen);
+    const L = ap.node().getTotalLength();
+    ap.attr('stroke-dasharray', `${L} ${L}`).attr('stroke-dashoffset', L)
+      .transition().duration(1100).attr('stroke-dashoffset', 0);
+
+    actualLayer.selectAll('circle').data(actual).enter().append('circle')
+      .attr('cx', d => x(d.year)).attr('cy', d => y(d.value)).attr('r', 0)
+      .attr('fill', 'var(--accent)')
+      .on('mouseover', function(e, d) {
+        showTooltip(`<strong>${d.year}</strong><br/>Avg anomaly: ${d.value >= 0 ? '+' : ''}${d.value.toFixed(2)}°C`, e);
+      })
+      .on('mouseout', hideTooltip)
+      .transition().delay(900).duration(400).attr('r', 3.5);
+
+    const lo = drawn[0], hi = drawn[drawn.length - 1];
+    const errs = actual.filter(d => d.year >= lo && d.year <= hi)
+      .map(d => Math.abs(predAt(d.year) - d.value));
+    const mae = d3.mean(errs);
+    const finalAnomaly = actual[actual.length - 1].value;
+
+    let verdict;
+    if (mae < 0.3) verdict = "Impressively close — you have strong intuition for how warming has actually unfolded.";
+    else if (mae < 0.7) verdict = "Pretty good. The signal is real but noisy — year-to-year variability makes it tricky to nail exactly.";
+    else verdict = "Most people either underestimate the rise or expect it to be smoother. The trend is real but buried in year-to-year noise.";
+
+    status.innerHTML =
+      `<span style="color:var(--accent2);font-weight:600;">●</span> your guess &nbsp; ` +
+      `<span style="color:var(--accent);font-weight:600;">●</span> actual 15-country mean anomaly<br/>` +
+      `<span class="draw-score">You were off by ~${mae.toFixed(2)}°C on average.</span><br/>` +
+      `<strong>${verdict}</strong> By 2023, the average across all 15 countries was ` +
+      `<strong>${finalAnomaly >= 0 ? '+' : ''}${finalAnomaly.toFixed(2)}°C</strong> relative to 2000 — a real but modest signal when averaged this way.`;
+  });
+
+  document.getElementById('draw-reset').addEventListener('click', () => {
+    for (const k in pred) delete pred[k];
+    revealed = false;
+    predLine.attr('d', null);
+    actualLayer.selectAll('*').remove();
+    g.select('#draw-hint').attr('opacity', 0.5);
+    status.innerHTML = 'Sketch your prediction above. The line should span the full width, 2000 → 2023.';
+  });
+} catch(e) { console.error("[viz error]", e); } })();
+
+// ─── SCROLLY A: TEMPERATURE ───────────────────────────────────────────────────
+(function() { try {
+  const el=document.getElementById('temp-chart');
+  const W=Math.min(el.parentElement.clientWidth-4, 560), H=320, margin={top:14,right:16,bottom:34,left:52};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+  const svg=d3.select(el).attr('width',W).attr('height',H);
+  const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const x=d3.scaleLinear().domain([2000,2023]).range([0,w]);
+  const y=d3.scaleLinear().domain([-10,30]).range([h,0]);
+  g.append('g').attr('class','grid').call(d3.axisLeft(y).tickSize(-w).tickFormat(''));
+  g.append('g').attr('class','axis').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8));
+  g.append('g').attr('class','axis').call(d3.axisLeft(y).ticks(6).tickFormat(d=>d+'°'));
+  g.append('line').attr('x1',0).attr('x2',w).attr('y1',y(0)).attr('y2',y(0)).attr('stroke','#8b949e').attr('stroke-dasharray','3,3').attr('opacity',.4);
+  const line=d3.line().x(d=>x(d.year)).y(d=>y(d.value)).curve(d3.curveCatmullRom.alpha(.5)).defined(d=>d.value!=null);
+  const paths={};
+  countries.forEach(c=>{ paths[c]=g.append('path').datum(seriesFor(c,'Avg Temperature (°C)')).attr('fill','none').attr('stroke',colorMap[c]).attr('stroke-width',2).attr('d',line).attr('opacity',.25); });
+  const caption=document.getElementById('temp-caption');
+  const HL={ 0:null, 1:['USA','China','India'], 2:['France','UK'] };
+  const CAP={ 0:'Fifteen countries, fifteen trajectories · Source: Berkeley Earth', 1:'USA, China, India — same emissions story, very different climates', 2:'France and UK — neighbors, closely correlated' };
+  function update(step){
+    const hl=HL[step]; caption.textContent=CAP[step];
+    countries.forEach(c=>{ paths[c].transition().duration(500).attr('opacity', !hl?.25:(hl.includes(c)?1:.05)).attr('stroke-width', hl&&hl.includes(c)?3:2); });
+  }
+  makeScrolly('#scrolly-temp .step', update);
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── SCROLLY B: SCATTER ───────────────────────────────────────────────────────
+(function() { try {
+  const el=document.getElementById('scatter-chart');
+  const W=Math.min(el.parentElement.clientWidth-4, 560), H=340, margin={top:14,right:16,bottom:42,left:52};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+  const svg=d3.select(el).attr('width',W).attr('height',H);
+  const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const x=d3.scaleLinear().domain([0,52]).range([0,w]);
+  const y=d3.scaleLinear().domain([0,23]).range([h,0]);
+  const r=d3.scaleSqrt().domain(d3.extent(data,d=>d.Population)).range([4,22]);
+  g.append('g').attr('class','grid').call(d3.axisLeft(y).tickSize(-w).tickFormat(''));
+  g.append('g').attr('class','axis').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).ticks(6).tickFormat(d=>d+'%'));
+  g.append('g').attr('class','axis').call(d3.axisLeft(y).ticks(6).tickFormat(d=>d+' T'));
+  g.append('text').attr('fill','#8b949e').attr('font-size',10).attr('x',w/2).attr('y',h+36).attr('text-anchor','middle').text('Renewable Energy (%)');
+  g.append('text').attr('fill','#8b949e').attr('font-size',10).attr('transform','rotate(-90)').attr('x',-h/2).attr('y',-42).attr('text-anchor','middle').text('CO₂ (T/cap)');
+  const trend=g.append('line').attr('stroke','#8b949e').attr('stroke-width',1.5).attr('stroke-dasharray','6,4').attr('opacity',.6);
+  const circles=g.append('g');
+  const yrLabel=document.getElementById('scatter-yr');
+  function getData(yr){ return countries.map(c=>{ const ren=meanFor(c,yr,'Renewable Energy (%)'); if(ren==null)return null; return {country:c,renewable:ren,co2:meanFor(c,yr,'CO2 Emissions (Tons/Capita)'),pop:meanFor(c,yr,'Population')}; }).filter(d=>d&&d.co2!=null); }
+  function update(yr){
+    yrLabel.textContent=yr;
+    const pts=getData(yr); const xs=pts.map(d=>d.renewable),ys=pts.map(d=>d.co2);
+    const mx=d3.mean(xs),my=d3.mean(ys),num=d3.sum(xs.map((v,i)=>(v-mx)*(ys[i]-my))),den=d3.sum(xs.map(v=>(v-mx)**2)),s=den?num/den:0,b=my-s*mx;
+    trend.transition().duration(600).attr('x1',x(0)).attr('y1',y(b)).attr('x2',x(52)).attr('y2',y(b+s*52));
+    const sel=circles.selectAll('circle').data(pts,d=>d.country);
+    sel.enter().append('circle').attr('fill',d=>colorMap[d.country]).attr('opacity',.78).attr('stroke',d=>colorMap[d.country]).attr('stroke-width',1.4).attr('cx',d=>x(d.renewable)).attr('cy',d=>y(d.co2)).attr('r',d=>r(d.pop||1e6))
+      .on('mouseover',function(e,d){ d3.select(this).attr('opacity',1); showTooltip(`<strong>${d.country}</strong><br/>Renewables: ${d.renewable.toFixed(1)}%<br/>CO₂: ${d.co2.toFixed(1)} T/cap`,e); })
+      .on('mouseout',function(){ d3.select(this).attr('opacity',.78); hideTooltip(); })
+      .merge(sel).transition().duration(700).attr('cx',d=>x(d.renewable)).attr('cy',d=>y(d.co2)).attr('r',d=>r(d.pop||1e6));
+    sel.exit().remove();
+  }
+  const YR={0:2000,1:2012,2:2023};
+  makeScrolly('#scrolly-scatter .step', s=>update(YR[s]));
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── SCROLLY C: SEA LEVEL ─────────────────────────────────────────────────────
+(function() { try {
+  const el=document.getElementById('sea-chart');
+  const W=Math.min(el.parentElement.clientWidth-4, 560), H=320, margin={top:16,right:55,bottom:34,left:52};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+  const svg=d3.select(el).attr('width',W).attr('height',H);
+  const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const seaD=years.map(y=>({year:y,val:data.find(d=>d.Year===y)['Sea Level Rise (cm)']}));
+  const exD=years.map(y=>({year:y,extreme:d3.mean(data.filter(d=>d.Year===y),d=>d['Extreme Weather Events'])}));
+  const x=d3.scaleLinear().domain([2000,2023]).range([0,w]);
+  const y=d3.scaleLinear().domain([0,d3.max(seaD,d=>d.val)*1.12]).range([h,0]);
+  const y2=d3.scaleLinear().domain([0,d3.max(exD,d=>d.extreme)*1.3]).range([h,0]);
+  g.append('g').attr('class','grid').call(d3.axisLeft(y).tickSize(-w).tickFormat(''));
+  g.append('g').attr('class','axis').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8));
+  g.append('g').attr('class','axis').call(d3.axisLeft(y).ticks(5).tickFormat(d=>d.toFixed(0)+'cm'));
+  const y2axis=g.append('g').attr('class','axis').attr('transform',`translate(${w},0)`).call(d3.axisRight(y2).ticks(4)).attr('opacity',0);
+  const area=d3.area().x(d=>x(d.year)).y0(h).y1(d=>y(d.val)).curve(d3.curveCatmullRom);
+  const aLine=d3.line().x(d=>x(d.year)).y(d=>y(d.val)).curve(d3.curveCatmullRom);
+  const defs=svg.append('defs'); const grad=defs.append('linearGradient').attr('id','seaGrad2').attr('x1','0%').attr('y1','0%').attr('x2','0%').attr('y2','100%');
+  grad.append('stop').attr('offset','0%').attr('stop-color','#58a6ff').attr('stop-opacity',.35);
+  grad.append('stop').attr('offset','100%').attr('stop-color','#58a6ff').attr('stop-opacity',.02);
+  g.append('path').datum(seaD).attr('fill','url(#seaGrad2)').attr('d',area);
+  g.append('path').datum(seaD).attr('fill','none').attr('stroke','#58a6ff').attr('stroke-width',2.5).attr('d',aLine);
+  const exLine=g.append('path').datum(exD).attr('fill','none').attr('stroke','#f78166').attr('stroke-width',1.5).attr('stroke-dasharray','4,3').attr('opacity',0).attr('d',d3.line().x(d=>x(d.year)).y(d=>y2(d.extreme)).curve(d3.curveCatmullRom));
+  const exDots=g.append('g').attr('opacity',0);
+  exDots.selectAll('circle').data(exD).enter().append('circle').attr('cx',d=>x(d.year)).attr('cy',d=>y2(d.extreme)).attr('r',4).attr('fill','#f78166')
+    .on('mouseover',function(e,d){ showTooltip(`<strong>${d.year}</strong><br/>Avg disasters: ${d.extreme.toFixed(1)}`,e); }).on('mouseout',hideTooltip);
+  const last=seaD[seaD.length-1];
+  const annot=g.append('text').attr('class','annotation-text').attr('x',x(last.year)-6).attr('y',y(last.val)-10).attr('text-anchor','end').attr('opacity',0).text(`+${last.val.toFixed(1)}cm since 1993`);
+  const cap=document.getElementById('sea-caption');
+  function update(step){
+    if(step>=1){ exLine.transition().duration(500).attr('opacity',.65); exDots.transition().duration(500).attr('opacity',1); y2axis.transition().duration(500).attr('opacity',1); cap.textContent='Sea level (blue, left) vs avg natural disasters (orange, right) · EM-DAT'; }
+    else { exLine.transition().duration(400).attr('opacity',0); exDots.transition().duration(400).attr('opacity',0); y2axis.transition().duration(400).attr('opacity',0); cap.textContent='Satellite altimetry from 1993 baseline · Source: NASA-SSH · only ever climbs'; }
+    annot.transition().duration(500).attr('opacity', step>=2?1:0);
+  }
+  makeScrolly('#scrolly-sea .step', update);
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── QUADRANT ─────────────────────────────────────────────────────────────────
+(function() { try {
+  const el=document.getElementById('quad-chart');
+  const W=Math.min(el.parentElement.clientWidth-40, 940), H=480, margin={top:30,right:30,bottom:55,left:60};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+  const svg=d3.select(el).attr('width',W).attr('height',H);
+  const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const pts=countries.map(c=>{ const rs=slope(seriesFor(c,'Renewable Energy (%)')), cs=slope(seriesFor(c,'CO2 Emissions (Tons/Capita)'));
+    let quad,col; if(rs>0&&cs<0){quad='Renewables up, emissions down';col='var(--accent3)';} else if(rs>0&&cs>=0){quad='Renewables up, emissions up';col='var(--warn)';} else if(rs<=0&&cs<0){quad='Renewables down, emissions down';col='var(--accent)';} else {quad='Both moving the wrong way';col='var(--accent2)';}
+    return {country:c,rs,cs,quad,col}; });
+  const rE=d3.max(pts,d=>Math.abs(d.rs))*1.25, cE=d3.max(pts,d=>Math.abs(d.cs))*1.25;
+  const x=d3.scaleLinear().domain([-rE,rE]).range([0,w]); const y=d3.scaleLinear().domain([-cE,cE]).range([0,h]);
+  const x0=x(0),y0=y(0);
+  [[x0,0,w-x0,y0,'#3fb950'],[0,0,x0,y0,'#58a6ff'],[x0,y0,w-x0,h-y0,'#e3b341'],[0,y0,x0,h-y0,'#f78166']].forEach(q=>g.append('rect').attr('class','quad-bg').attr('x',q[0]).attr('y',q[1]).attr('width',q[2]).attr('height',q[3]).attr('fill',q[4]));
+  g.append('line').attr('x1',x0).attr('x2',x0).attr('y1',0).attr('y2',h).attr('stroke','var(--muted)').attr('opacity',.5);
+  g.append('line').attr('x1',0).attr('x2',w).attr('y1',y0).attr('y2',y0).attr('stroke','var(--muted)').attr('opacity',.5);
+  [[w-6,14,'✓ WIN–WIN (9 countries)','#3fb950','end'],[6,14,'emissions fell (renewables stagnant)','#79c0ff','start'],[w-6,h-6,'renewables grew, emissions UP','#e3b341','end'],[6,h-6,'both going wrong way','#f78166','start']].forEach(q=>g.append('text').attr('class','quad-label').attr('x',q[0]).attr('y',q[1]).attr('text-anchor',q[4]).attr('fill',q[3]).text(q[2]));
+  g.append('text').attr('fill','#8b949e').attr('font-size',11).attr('x',w/2).attr('y',h+38).attr('text-anchor','middle').text('← renewable share falling   |   renewable share rising →  (%/year)');
+  g.append('text').attr('fill','#8b949e').attr('font-size',11).attr('transform','rotate(-90)').attr('x',-h/2).attr('y',-44).attr('text-anchor','middle').text('↑ emissions falling   |   emissions rising ↓  (T/cap/year)');
+  const node=g.selectAll('.qn').data(pts).enter().append('g').attr('class','qn').attr('transform',`translate(${x0},${y0})`).style('opacity',0);
+  node.append('circle').attr('r',7).attr('fill',d=>d.col).attr('stroke',d=>d.col).attr('fill-opacity',.55).attr('stroke-width',1.6)
+    .on('mouseover',function(e,d){ d3.select(this).attr('r',10); showTooltip(`<strong>${d.country}</strong><br/>Renewables: ${d.rs>0?'+':''}${d.rs.toFixed(3)}%/yr<br/>CO₂: ${d.cs>0?'+':''}${d.cs.toFixed(4)} T/cap·yr<br/><em>${d.quad}</em>`,e); })
+    .on('mouseout',function(){ d3.select(this).attr('r',7); hideTooltip(); });
+  node.append('text').attr('x',10).attr('y',4).attr('font-size',10).attr('fill','var(--text)').text(d=>d.country);
+  let played=false; function play(){ if(played)return; played=true; node.transition().duration(900).delay((d,i)=>i*55).ease(d3.easeCubicOut).attr('transform',d=>`translate(${x(d.rs)},${y(d.cs)})`).style('opacity',1); }
+  const leg=document.getElementById('quad-legend');
+  [['var(--accent3)','Win-win: renewables up, emissions down (9 countries)'],['var(--warn)','Renewables up, emissions also up (4 countries)'],['var(--accent2)','Renewables stagnant, emissions up (2 countries)']].forEach(([c,t])=>{ const i=document.createElement('div'); i.className='legend-item'; i.innerHTML=`<span class="legend-dot" style="background:${c}"></span>${t}`; leg.appendChild(i); });
+  new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) play(); }),{threshold:.35}).observe(el);
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── QUIZ ─────────────────────────────────────────────────────────────────────
+(function() { try {
+  const QS=[
+    { q:'In 2000, which country had the HIGHEST CO₂ emissions per person among these fifteen?',
+      opts:['Russia','Australia','United States','Canada'], answer:2,
+      fb:'<strong>The USA</strong>, at over 21 tons per person in 2000 — nearly double Australia (18.3T) and triple Germany (11T). The US has since cut this substantially, to ~14T by 2023, but still ranks high.' },
+    { q:'Which country grew its renewable energy share the FASTEST over 2000–2023?',
+      opts:['Germany','China','United Kingdom','Australia'], answer:2,
+      fb:'<strong>The UK</strong>, gaining about 0.9 percentage points per year — from barely 1% in 2000 to nearly 20% by 2023. Germany was nearly identical in pace. Both countries drove rapid wind and solar buildout.' },
+    { q:'China grew its renewable energy share significantly. What happened to its per-capita CO₂ emissions at the same time?',
+      opts:['They fell sharply','They stayed flat','They nearly tripled','They rose by about 10%'], answer:2,
+      fb:'<strong>China\'s per-capita CO₂ nearly tripled</strong>, from 2.9 T in 2000 to 8.6 T in 2023. This is the key tension in the data: a country can grow clean energy rapidly while still dramatically increasing total emissions if economic growth dominates.' },
+    { q:'How many of the fifteen countries managed to BOTH grow renewables AND cut per-capita CO₂ over the full period?',
+      opts:['5','9','12','3'], answer:1,
+      fb:'<strong>Nine of fifteen</strong> — Australia, Canada, France, Germany, Japan, Mexico, South Africa, UK, and the USA. The six that did not include China, India, Indonesia, Brazil, Argentina, and Russia. The two most populous nations are in the "miss" column.' },
+  ];
+  const box=document.getElementById('quiz-box');
+  let answered=0, correct=0;
+  QS.forEach((item,i)=>{
+    const card=document.createElement('div'); card.className='qcard';
+    card.innerHTML=`<div class="qnum">Question ${i+1} of ${QS.length}</div><div class="qtext">${item.q}</div>`;
+    const opts=document.createElement('div'); opts.className='qopts';
+    const fb=document.createElement('div'); fb.className='qfeedback';
+    item.opts.forEach((o,j)=>{
+      const b=document.createElement('button'); b.className='qopt'; b.textContent=o;
+      b.addEventListener('click',()=>{
+        Array.from(opts.children).forEach(c=>c.disabled=true);
+        if(j===item.answer){ b.classList.add('correct'); correct++; }
+        else { b.classList.add('wrong'); opts.children[item.answer].classList.add('correct'); }
+        fb.innerHTML=item.fb; fb.classList.add('show');
+        answered++; if(answered===QS.length) finish();
+      });
+      opts.appendChild(b);
+    });
+    card.appendChild(opts); card.appendChild(fb); box.appendChild(card);
+  });
+  function finish(){
+    const sc=document.getElementById('scorecard');
+    document.getElementById('score-num').textContent=`${correct}/${QS.length}`;
+    let msg;
+    if(correct===4) msg="Perfect. You read the charts carefully and the China/renewables paradox didn't fool you — most people expect renewables growth to mean falling emissions.";
+    else if(correct>=2) msg="Good — you got the broad strokes. The China question trips most people: we assume renewables and falling emissions go together, but development can outrun the transition.";
+    else msg="The data surprises most people here. The biggest insight: China grew renewables fast AND tripled per-capita CO₂. Headlines about the energy transition often skip the 'but emissions also rose' part.";
+    document.getElementById('score-insight').textContent=msg;
+    sc.classList.add('show'); sc.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── SANDBOX: SCATTER ─────────────────────────────────────────────────────────
+(function() { try {
+  const el=document.getElementById('xy-chart');
+  const W=Math.min(el.parentElement.clientWidth-40,560), H=360, margin={top:18,right:18,bottom:48,left:60};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+  const svg=d3.select(el).attr('width',W).attr('height',H); const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const xA=g.append('g').attr('class','axis').attr('transform',`translate(0,${h})`); const yA=g.append('g').attr('class','axis'); const grid=g.append('g').attr('class','grid'); const dots=g.append('g');
+  const xL=g.append('text').attr('fill','#8b949e').attr('font-size',11).attr('x',w/2).attr('y',h+40).attr('text-anchor','middle');
+  const yL=g.append('text').attr('fill','#8b949e').attr('font-size',11).attr('transform','rotate(-90)').attr('x',-h/2).attr('y',-46).attr('text-anchor','middle');
+  const x=d3.scaleLinear().range([0,w]), y=d3.scaleLinear().range([h,0]);
+  const xS=document.getElementById('xy-x'), yS=document.getElementById('xy-y');
+  metrics.forEach(m=>{ xS.add(new Option(m,m)); yS.add(new Option(m,m)); }); xS.value='Renewable Energy (%)'; yS.value='CO2 Emissions (Tons/Capita)';
+  const yr=document.getElementById('xy-year'), yrL=document.getElementById('xy-year-label');
+  function render(){
+    const xm=xS.value,ym=yS.value,Y=+yr.value;
+    const pts=countries.map(c=>({country:c,x:meanFor(c,Y,xm),y:meanFor(c,Y,ym)})).filter(d=>d.x!=null&&d.y!=null);
+    x.domain([d3.min(pts,d=>d.x)*0.9||0,d3.max(pts,d=>d.x)*1.08||1]); y.domain([d3.min(pts,d=>d.y)*0.9||0,d3.max(pts,d=>d.y)*1.08||1]);
+    grid.call(d3.axisLeft(y).tickSize(-w).tickFormat(''));
+    xA.transition().duration(400).call(d3.axisBottom(x).ticks(6)); yA.transition().duration(400).call(d3.axisLeft(y).ticks(6));
+    xL.text(xm); yL.text(ym);
+    const sel=dots.selectAll('circle').data(pts,d=>d.country);
+    sel.enter().append('circle').attr('r',6).attr('fill',d=>colorMap[d.country]).attr('opacity',.78).attr('stroke',d=>colorMap[d.country]).attr('cx',d=>x(d.x)).attr('cy',d=>y(d.y))
+      .on('mouseover',function(e,d){ d3.select(this).attr('r',9); showTooltip(`<strong>${d.country}</strong> (${Y})<br/>${xm}: ${d.x.toFixed(2)}<br/>${ym}: ${d.y.toFixed(2)}`,e); })
+      .on('mouseout',function(){ d3.select(this).attr('r',6); hideTooltip(); })
+      .merge(sel).transition().duration(450).attr('cx',d=>x(d.x)).attr('cy',d=>y(d.y));
+    sel.exit().remove();
+  }
+  [xS,yS].forEach(s=>s.addEventListener('change',render)); yr.addEventListener('input',()=>{ yrL.textContent=yr.value; render(); }); render();
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── SANDBOX: BAR ─────────────────────────────────────────────────────────────
+(function() { try {
+  const el=document.getElementById('bar-chart');
+  const W=Math.min(el.parentElement.clientWidth-40,560), H=400, margin={top:10,right:40,bottom:55,left:120};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+  const svg=d3.select(el).attr('width',W).attr('height',H); const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const x=d3.scaleLinear().range([0,w]), y=d3.scaleBand().range([0,h]).padding(.3);
+  const xA=g.append('g').attr('class','axis').attr('transform',`translate(0,${h})`); const yA=g.append('g').attr('class','axis');
+  const barsG=g.append('g'), lblG=g.append('g');
+  const xL=g.append('text').attr('fill','#8b949e').attr('font-size',11).attr('x',w/2).attr('y',h+45).attr('text-anchor','middle');
+  const ySel=document.getElementById('bar-year'); years.forEach(yy=>ySel.add(new Option(yy,yy))); ySel.value=2015;
+  function md(metric,year){ return countries.map(c=>({country:c,value:meanFor(c,year,metric)??0})).sort((a,b)=>b.value-a.value); }
+  function render(){
+    const metric=document.getElementById('bar-metric').value, year=+ySel.value, pts=md(metric,year);
+    x.domain([0,d3.max(pts,d=>d.value)*1.08||1]); y.domain(pts.map(d=>d.country));
+    xA.transition().duration(400).call(d3.axisBottom(x).ticks(5)); yA.transition().duration(400).call(d3.axisLeft(y)); xL.text(metric);
+    const bars=barsG.selectAll('rect').data(pts,d=>d.country);
+    bars.enter().append('rect').attr('x',0).attr('width',0).attr('rx',3).attr('fill',d=>colorMap[d.country]).attr('y',d=>y(d.country)).attr('height',y.bandwidth())
+      .on('mouseover',function(e,d){ d3.select(this).attr('opacity',.8); showTooltip(`<strong>${d.country}</strong><br/>${metric}: ${d.value.toFixed(2)}`,e); })
+      .on('mouseout',function(){ d3.select(this).attr('opacity',1); hideTooltip(); })
+      .merge(bars).transition().duration(500).attr('y',d=>y(d.country)).attr('height',y.bandwidth()).attr('width',d=>x(d.value));
+    bars.exit().transition().duration(300).attr('width',0).remove();
+    const l=lblG.selectAll('text').data(pts,d=>d.country);
+    l.enter().append('text').attr('x',4).attr('fill','#e6edf3').attr('font-size',10).attr('y',d=>y(d.country)+y.bandwidth()/2+4)
+      .merge(l).transition().duration(500).attr('y',d=>y(d.country)+y.bandwidth()/2+4).attr('x',d=>x(d.value)+5).text(d=>d.value.toFixed(2));
+    l.exit().remove();
+  }
+  document.getElementById('bar-metric').addEventListener('change',render); ySel.addEventListener('change',render); render();
+} catch(e){ console.error("[viz error]",e); } })();
+
+// ─── REVEAL + PROGRESS + COUNTERS ─────────────────────────────────────────────
+(function() { try {
+  const ro=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in-view'); ro.unobserve(e.target); } }),{threshold:.18});
+  document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+  const bar=document.getElementById('progress');
+  window.addEventListener('scroll',()=>{ const sc=document.documentElement.scrollTop, mx=document.documentElement.scrollHeight-document.documentElement.clientHeight; bar.style.width=(sc/mx*100)+'%'; });
+  function animateCount(el){ const t=+el.dataset.count,dur=1400,st=performance.now(); function step(ts){ const p=Math.min((ts-st)/dur,1); el.textContent=Math.round(t*(1-Math.pow(1-p,3))).toLocaleString(); if(p<1)requestAnimationFrame(step); } requestAnimationFrame(step); }
+  document.querySelectorAll('[data-count]').forEach(el=>{ try{ animateCount(el); }catch(_){ el.textContent=(+el.dataset.count).toLocaleString(); } });
+} catch(e){ console.error("[viz error]",e); } })();
+</script>
+</body>
+</html>
