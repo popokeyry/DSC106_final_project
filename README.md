@@ -20,14 +20,14 @@ Aaditya Aswadhati · Nainika Neerukonda · Ryan Atienza
 
 Are the countries building renewable energy actually cutting emissions, and what have two decades of climate impacts looked like in the meantime?
 
-This project tracks **five climate signals** across **15 countries** from **2000 to 2023**, using credible, publicly available datasets. It is built as an explorable explanation using D3.js v7, combining scrollytelling, interactive predictions, a quiz, and a data sandbox to guide readers through the question and let them discover their own answers.
+This project tracks **five climate signals** across **15 countries** from **2000 to 2022**, using credible, publicly available datasets. It is built as an explorable explanation using D3.js v7, combining scrollytelling, interactive predictions, a quiz, and a data sandbox to guide readers through the question and let them discover their own answers.
 
 ---
 
 ## ✨ Features
 
-- **Prediction Game** — Before seeing the data, readers draw their own guess at the average warming trend (2000–2023). Their sketch is then compared against the real Berkeley Earth signal.
-- **Scrollytelling** — Three sticky-chart chapters walk through temperature divergence across countries, the renewables-vs-emissions relationship over time (2000 → 2012 → 2023), and global sea level rise alongside extreme weather events.
+- **Prediction Game** — Before seeing the data, readers draw their own guess at the average warming trend (2000–2022). Their sketch is then compared against the real Berkeley Earth signal.
+- **Scrollytelling** — Three sticky-chart chapters walk through temperature divergence across countries, the renewables-vs-emissions relationship over time (2000 → 2012 → 2022), and global sea level rise alongside extreme weather events.
 - **Direction-of-Travel Quadrant** — A scatter plot showing each country's 20-year slope: did renewables rise? Did emissions fall? Nine of fifteen landed in the "win–win" corner.
 - **Commit-Then-Reveal Quiz** — Four questions where readers must commit to an answer before seeing whether the data confirms or surprises their mental model.
 - **Exploration Sandbox** — Plot any two indicators against each other for any year, or rank all fifteen countries on any metric.
